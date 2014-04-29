@@ -7,7 +7,7 @@ add_definitions(${PCL_DEFINITIONS})
 #find_package(VTK 5.8 REQUIRED NO_MODULE)
 #include(${VTK_USE_FILE})
 
-OPTION(SOFTKINETIC "Build the softkinetic device frontend" ON)
+OPTION(SOFTKINETIC "Build the softkinetic device frontend" OFF)
 IF(SOFTKINETIC)
 	include_directories(/opt/softkinetic/DepthSenseSDK/include/)
 	LINK_DIRECTORIES(/opt/softkinetic/DepthSenseSDK/lib/)
@@ -15,3 +15,6 @@ IF(SOFTKINETIC)
 	target_link_libraries(softkinetic ${PCL_LIBRARIES}  DepthSense DepthSensePlugins)
 ENDIF(SOFTKINETIC)
 
+
+add_executable(opennigrabber src/openni_grabber_example.cpp )
+target_link_libraries(opennigrabber ${PCL_LIBRARIES})

@@ -33,7 +33,7 @@ private:
 
 
 
-	Eigen::Matrix4f m_globalTransform ;
+	Eigen::Matrix4f m_sensorTransform ;
 	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > m_frames;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr m_globalCloud;
 	//our visualizer

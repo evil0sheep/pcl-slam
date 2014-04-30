@@ -172,7 +172,7 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
   pcl::VoxelGrid<pcl::PointXYZ> grid;
   if (downsample)
   {
-    grid.setLeafSize (0.05, 0.05, 0.05);
+    grid.setLeafSize (0.03, 0.03, 0.03);
     grid.setInputCloud (cloud_src);
     grid.filter (*src);
 
@@ -346,16 +346,34 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
  }
 
  void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame){
-    pcl::PointCloud<pcl::PointXYZ>::Ptr target = frame.makeShared();
+    pcl::PointCloud<pcl::PointXYZ>::Ptr target = m_globalCloud; //frame.makeShared();
+    pcl::PointCloud<pcl::PointXYZ>::Ptr source = frame.makeShared(); //m_frames.back();
     if(! m_frames.empty()){
-      pcl::PointCloud<pcl::PointXYZ>::Ptr source = m_frames.back();
-      //pcl::PointCloud<pcl::PointXYZ>::Ptr result (new pcl::PointCloud<pcl::PointXYZ>)
+      
+      pcl::PointCloud<pcl::PointXYZ>::Ptr result (new pcl::PointCloud<pcl::PointXYZ>);
       pcl::PointCloud<pcl::PointXYZ>::Ptr temp (new pcl::PointCloud<pcl::PointXYZ>);
       Eigen::Matrix4f pairTransform;
 
-      // Add visualization data
-      showCloudsLeft(source, target);
+      pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor; 
+      sor.setMeanK (50);
+      sor.setStddevMulThresh (1.0);
 
+
+
+      pcl::VoxelGrid<pcl::PointXYZ> grid;
+      float leafSize =0.002;
+      grid.setLeafSize (leafSize, leafSize, leafSize);
+
+      // grid.setInputCloud (source);
+      // grid.filter (*source);
+
+      sor.setInputCloud (source);
+      sor.filter (*source);
+
+      // Add visualization data
+      showCloudsLeft(target, source);
+
+      //pcl::transformPointCloud (*source, *result, m_globalTransform);
      
       PCL_INFO ("Aligning cloud of size %d with cloud of size %d.\n", source->points.size (), target->points.size ());
       pairAlign (source, target, temp, pairTransform, true);
@@ -368,9 +386,24 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
 
       std::cout << "New Global Transform: " << std::endl << m_globalTransform <<std::endl;
 
-      //m_globalCloud << result;
+     //  pcl::transformPointCloud (*source, *result, m_globalTransform);
+     // *m_globalCloud += *temp;
+
+      grid.setInputCloud (temp);
+      grid.filter (*m_globalCloud);
+
+
+      sor.setInputCloud (m_globalCloud);
+      sor.filter (*m_globalCloud);
+
+      // pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+      // sor.setInputCloud (temp);
+      // sor.setMeanK (50);
+      // sor.setStddevMulThresh (1.0);
+      // sor.filter (*m_globalCloud);
+
     }else{
-      //m_globalCloud << result;
+      *m_globalCloud += *source;
     }
     m_frames.push_back(target);
  }

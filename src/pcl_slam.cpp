@@ -163,7 +163,147 @@ void SLAMProcessor::showCloudsRight(const pcl::PointCloud<pcl::PointNormal>::Ptr
   * \param output the resultant aligned source PointCloud
   * \param final_transform the resultant transform between source and target
   */
-void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample)
+// void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample)
+// {
+//   //
+//   // Downsample for consistency and speed
+//   // \note enable this for large datasets
+//   pcl::PointCloud<pcl::PointXYZ>::Ptr src (new pcl::PointCloud<pcl::PointXYZ>);
+//   pcl::PointCloud<pcl::PointXYZ>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZ>);
+//   pcl::VoxelGrid<pcl::PointXYZ> grid;
+//   if (downsample)
+//   {
+//     grid.setLeafSize (0.05, 0.05, 0.05);
+//     grid.setInputCloud (cloud_src);
+//     grid.filter (*src);
+
+//     grid.setInputCloud (cloud_tgt);
+//     grid.filter (*tgt);
+//   }
+//   else
+//   {
+//     src = cloud_src;
+//     tgt = cloud_tgt;
+//   }
+
+
+//   // Compute surface normals and curvature
+//   pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_src (new pcl::PointCloud<pcl::PointNormal>);
+//   pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_tgt (new pcl::PointCloud<pcl::PointNormal>);
+
+//   pcl::NormalEstimation<pcl::PointXYZ, pcl::PointNormal> norm_est;
+//   pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ> ());
+//   norm_est.setSearchMethod (tree);
+//   norm_est.setKSearch (30);
+  
+//   norm_est.setInputCloud (src);
+//   norm_est.compute (*points_with_normals_src);
+//   pcl::copyPointCloud (*src, *points_with_normals_src);
+
+//   norm_est.setInputCloud (tgt);
+//   norm_est.compute (*points_with_normals_tgt);
+//   pcl::copyPointCloud (*tgt, *points_with_normals_tgt);
+
+//   //
+//   // Instantiate our custom point representation (defined above) ...
+//   MyPointRepresentation point_representation;
+//   // ... and weight the 'curvature' dimension so that it is balanced against x, y, and z
+//   float alpha[4] = {1.0, 1.0, 1.0, 1.0};
+//   point_representation.setRescaleValues (alpha);
+
+//   //
+//   // Align
+//   pcl::IterativeClosestPointNonLinear<pcl::PointNormal, pcl::PointNormal> reg;
+//   reg.setTransformationEpsilon (1e-6);
+//   // Set the maximum distance between two correspondences (src<->tgt) to 10cm
+//   // Note: adjust this based on the size of your datasets
+//   reg.setMaxCorrespondenceDistance (0.05);  
+//   // Set the point representation
+//   reg.setPointRepresentation (boost::make_shared<const MyPointRepresentation> (point_representation));
+
+//   reg.setInputSource (points_with_normals_src);
+//   reg.setInputTarget (points_with_normals_tgt);
+
+
+
+//   //
+//   // Run the same optimization in a loop and visualize the results
+//   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
+//   pcl::PointCloud<pcl::PointNormal>::Ptr reg_result = points_with_normals_src;
+//   reg.setMaximumIterations (100);
+//   reg.setRANSACIterations(1000);
+//   reg.setRANSACOutlierRejectionThreshold(0.005);
+
+//   //reg.estimateRigidTransformationLM(points_with_normals_src, points_with_normals_tgt, Ti);
+
+
+//   for (int i = 0; i < 2; ++i)
+//   {
+//    // PCL_INFO ("Iteration Nr. %d.\n", i);
+
+//     // save cloud for visualization purpose
+//     points_with_normals_src = reg_result;
+
+//     // Estimate
+//     reg.setInputSource (points_with_normals_src);
+//     reg.align (*reg_result);
+
+//     if(!reg.hasConverged()){
+//       PCL_ERROR ("Registration did not converge\n");
+//     }
+
+// 		//accumulate transformation between each Iteration
+//     Ti = reg.getFinalTransformation () * Ti;
+
+
+
+// 		//if the difference between this transformation and the previous one
+// 		//is smaller than the threshold, refine the process by reducing
+// 		//the maximal correspondence distance
+//     if (fabs ((reg.getLastIncrementalTransformation () - prev).sum ()) < reg.getTransformationEpsilon ())
+//       reg.setMaxCorrespondenceDistance (reg.getMaxCorrespondenceDistance () - 0.001);
+    
+//     prev = reg.getLastIncrementalTransformation ();
+
+
+
+//     // visualize current state
+//     //showCloudsRight(points_with_normals_tgt, points_with_normals_src);
+//   }
+
+// 	//
+//   // Get the transformation from target to source
+//   targetToSource = Ti.inverse();
+
+//   // targetToSource(0,0) = 1.0;
+//   // targetToSource(1,1) = 1.0;
+//   // targetToSource(2,2) = 1.0;
+//   // targetToSource(3,3) = 1.0;
+//   //
+//   // Transform target back in source frame
+//   pcl::transformPointCloud (*cloud_tgt, *output, targetToSource);
+
+//  //  p->removePointCloud ("source");
+//  //  p->removePointCloud ("target");
+
+//  //  PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_tgt_h (output, 0, 255, 0);
+//  //  PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_src_h (cloud_src, 255, 0, 0);
+//  //  p->addPointCloud (output, cloud_tgt_h, "target", vp_2);
+//  //  p->addPointCloud (cloud_src, cloud_src_h, "source", vp_2);
+
+// 	// // PCL_INFO ("Press q to continue the registration.\n");
+//  // //  p->spin ();
+
+//  //  p->removePointCloud ("source"); 
+//  //  p->removePointCloud ("target");
+
+//   //add the source to the transformed target
+//   //*output += *cloud_src;
+  
+//   final_transform = targetToSource;
+//  }
+
+ void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample)
 {
   //
   // Downsample for consistency and speed
@@ -187,118 +327,72 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
   }
 
 
-  // Compute surface normals and curvature
-  pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_src (new pcl::PointCloud<pcl::PointNormal>);
-  pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_tgt (new pcl::PointCloud<pcl::PointNormal>);
+  // // Compute surface normals and curvature
+  // pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_src (new pcl::PointCloud<pcl::PointNormal>);
+  // pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_tgt (new pcl::PointCloud<pcl::PointNormal>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr reg_result (new pcl::PointCloud<pcl::PointXYZ>);
 
-  pcl::NormalEstimation<pcl::PointXYZ, pcl::PointNormal> norm_est;
-  pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ> ());
-  norm_est.setSearchMethod (tree);
-  norm_est.setKSearch (30);
+  // pcl::NormalEstimation<pcl::PointXYZ, pcl::PointNormal> norm_est;
+  // pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ> ());
+  // norm_est.setSearchMethod (tree);
+  // norm_est.setKSearch (30);
   
-  norm_est.setInputCloud (src);
-  norm_est.compute (*points_with_normals_src);
-  pcl::copyPointCloud (*src, *points_with_normals_src);
+  // norm_est.setInputCloud (src);
+  // norm_est.compute (*points_with_normals_src);
+  // pcl::copyPointCloud (*src, *points_with_normals_src);
 
-  norm_est.setInputCloud (tgt);
-  norm_est.compute (*points_with_normals_tgt);
-  pcl::copyPointCloud (*tgt, *points_with_normals_tgt);
+  // norm_est.setInputCloud (tgt);
+  // norm_est.compute (*points_with_normals_tgt);
+  // pcl::copyPointCloud (*tgt, *points_with_normals_tgt);
 
-  //
-  // Instantiate our custom point representation (defined above) ...
-  MyPointRepresentation point_representation;
-  // ... and weight the 'curvature' dimension so that it is balanced against x, y, and z
-  float alpha[4] = {1.0, 1.0, 1.0, 1.0};
-  point_representation.setRescaleValues (alpha);
+  // //
+  // // Instantiate our custom point representation (defined above) ...
+  // MyPointRepresentation point_representation;
+  // // ... and weight the 'curvature' dimension so that it is balanced against x, y, and z
+  // float alpha[4] = {1.0, 1.0, 1.0, 1.0};
+  // point_representation.setRescaleValues (alpha);
 
   //
   // Align
-  pcl::IterativeClosestPointNonLinear<pcl::PointNormal, pcl::PointNormal> reg;
-  reg.setTransformationEpsilon (1e-6);
+  pcl::IterativeClosestPointNonLinear<pcl::PointXYZ, pcl::PointXYZ> reg;
+  reg.setTransformationEpsilon (1e-8);
   // Set the maximum distance between two correspondences (src<->tgt) to 10cm
   // Note: adjust this based on the size of your datasets
-  reg.setMaxCorrespondenceDistance (0.05);  
+  reg.setMaxCorrespondenceDistance (0.05); 
+  reg.setMaximumIterations (100); 
+  reg.setEuclideanFitnessEpsilon(1e-8);
   // Set the point representation
-  reg.setPointRepresentation (boost::make_shared<const MyPointRepresentation> (point_representation));
+  //reg.setPointRepresentation (boost::make_shared<const MyPointRepresentation> (point_representation));
 
-  reg.setInputSource (points_with_normals_src);
-  reg.setInputTarget (points_with_normals_tgt);
+  reg.setInputSource (src);
+  reg.setInputTarget (tgt);
 
 
-
-  //
-  // Run the same optimization in a loop and visualize the results
   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
-  pcl::PointCloud<pcl::PointNormal>::Ptr reg_result = points_with_normals_src;
-  reg.setMaximumIterations (100);
+  //pcl::PointCloud<pcl::PointNormal>::Ptr reg_result = points_with_normals_tgt;
+   
   reg.setRANSACIterations(1000);
-  reg.setRANSACOutlierRejectionThreshold(0.005);
+  reg.setRANSACOutlierRejectionThreshold(0.05);
 
-  //reg.estimateRigidTransformationLM(points_with_normals_src, points_with_normals_tgt, Ti);
-
-
-  for (int i = 0; i < 2; ++i)
-  {
-   // PCL_INFO ("Iteration Nr. %d.\n", i);
-
-    // save cloud for visualization purpose
-    points_with_normals_src = reg_result;
-
-    // Estimate
-    reg.setInputSource (points_with_normals_src);
-    reg.align (*reg_result);
-
-    if(!reg.hasConverged()){
-      PCL_ERROR ("Registration did not converge\n");
-    }
-
-		//accumulate transformation between each Iteration
-    Ti = reg.getFinalTransformation () * Ti;
+  std::cout << reg.getEuclideanFitnessEpsilon() << std::endl;
 
 
+  reg.align (*reg_result);
 
-		//if the difference between this transformation and the previous one
-		//is smaller than the threshold, refine the process by reducing
-		//the maximal correspondence distance
-    if (fabs ((reg.getLastIncrementalTransformation () - prev).sum ()) < reg.getTransformationEpsilon ())
-      reg.setMaxCorrespondenceDistance (reg.getMaxCorrespondenceDistance () - 0.001);
-    
-    prev = reg.getLastIncrementalTransformation ();
-
-
-
-    // visualize current state
-    //showCloudsRight(points_with_normals_tgt, points_with_normals_src);
+  if(!reg.hasConverged()){
+    PCL_ERROR ("Registration did not converge\n");
   }
 
-	//
-  // Get the transformation from target to source
+  //accumulate transformation between each Iteration
+  Ti = reg.getFinalTransformation () * Ti;
+
+  
+
+
   targetToSource = Ti.inverse();
 
-  // targetToSource(0,0) = 1.0;
-  // targetToSource(1,1) = 1.0;
-  // targetToSource(2,2) = 1.0;
-  // targetToSource(3,3) = 1.0;
-  //
-  // Transform target back in source frame
   pcl::transformPointCloud (*cloud_tgt, *output, targetToSource);
 
- //  p->removePointCloud ("source");
- //  p->removePointCloud ("target");
-
- //  PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_tgt_h (output, 0, 255, 0);
- //  PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_src_h (cloud_src, 255, 0, 0);
- //  p->addPointCloud (output, cloud_tgt_h, "target", vp_2);
- //  p->addPointCloud (cloud_src, cloud_src_h, "source", vp_2);
-
-	// // PCL_INFO ("Press q to continue the registration.\n");
- // //  p->spin ();
-
- //  p->removePointCloud ("source"); 
- //  p->removePointCloud ("target");
-
-  //add the source to the transformed target
-  //*output += *cloud_src;
   
   final_transform = targetToSource;
  }
@@ -448,6 +542,7 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
 
       // std::cout << "Alignment Correction: " << std::endl << alignmentCorrectionTransform <<std::endl;
       //std::cout << "New Global Transform: " << std::endl << m_sensorTransform <<std::endl;
+      //std::cout << "New Global Scale: "  << m_sensorTransform(0,0) << "," << m_sensorTransform(1,1) << "," <<m_sensorTransform(2,2) << "," <<std::endl;
      std::cout << "New Global Position: "  << m_sensorTransform(0,3) << "," << m_sensorTransform(1,3) << "," <<m_sensorTransform(2,3) << "," <<std::endl;
 
     }else{

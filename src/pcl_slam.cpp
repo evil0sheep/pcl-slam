@@ -233,9 +233,13 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
   reg.setMaximumIterations (100);
   reg.setRANSACIterations(1000);
   reg.setRANSACOutlierRejectionThreshold(0.005);
+
+  //reg.estimateRigidTransformationLM(points_with_normals_src, points_with_normals_tgt, Ti);
+
+
   for (int i = 0; i < 2; ++i)
   {
-    PCL_INFO ("Iteration Nr. %d.\n", i);
+   // PCL_INFO ("Iteration Nr. %d.\n", i);
 
     // save cloud for visualization purpose
     points_with_normals_src = reg_result;
@@ -244,8 +248,14 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
     reg.setInputSource (points_with_normals_src);
     reg.align (*reg_result);
 
+    if(!reg.hasConverged()){
+      PCL_ERROR ("Registration did not converge\n");
+    }
+
 		//accumulate transformation between each Iteration
     Ti = reg.getFinalTransformation () * Ti;
+
+
 
 		//if the difference between this transformation and the previous one
 		//is smaller than the threshold, refine the process by reducing
@@ -255,6 +265,8 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
     
     prev = reg.getLastIncrementalTransformation ();
 
+
+
     // visualize current state
     //showCloudsRight(points_with_normals_tgt, points_with_normals_src);
   }
@@ -263,6 +275,10 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
   // Get the transformation from target to source
   targetToSource = Ti.inverse();
 
+  // targetToSource(0,0) = 1.0;
+  // targetToSource(1,1) = 1.0;
+  // targetToSource(2,2) = 1.0;
+  // targetToSource(3,3) = 1.0;
   //
   // Transform target back in source frame
   pcl::transformPointCloud (*cloud_tgt, *output, targetToSource);
@@ -351,22 +367,22 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
  void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame){
     //pcl::PointCloud<pcl::PointXYZ>::Ptr target = m_globalCloud; //frame.makeShared();
 
-    PCL_INFO ("adding frame\n");
+    //PCL_INFO ("adding frame\n");
     pcl::PointCloud<pcl::PointXYZ>::Ptr rawFrame = frame.makeShared(); //m_frames.back();
     pcl::PointCloud<pcl::PointXYZ>::Ptr filteredFrame (new pcl::PointCloud<pcl::PointXYZ>);
 
 
 
-    static pcl::VoxelGrid<pcl::PointXYZ> grid;
-    float leafSize =0.05;
+    pcl::VoxelGrid<pcl::PointXYZ> grid;
+    float leafSize =0.005;
     grid.setLeafSize (leafSize, leafSize, leafSize);
 
-    static pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor; 
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor; 
     sor.setMeanK (10);
     sor.setStddevMulThresh (1.0);
 
 
-    PCL_INFO ("filtering input\n");
+    //PCL_INFO ("filtering input\n");
     std::vector<int> indices; 
     pcl::removeNaNFromPointCloud(*rawFrame,*filteredFrame, indices); 
 
@@ -381,7 +397,7 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
       pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledFrame (new pcl::PointCloud<pcl::PointXYZ>);
       Eigen::Matrix4f alignmentCorrectionTransform;
 
-      PCL_INFO ("applying current alignment\n");
+      //PCL_INFO ("applying current alignment\n");
       pcl::transformPointCloud (*filteredFrame, *partiallyAlignedFrame, m_sensorTransform);
 
 
@@ -391,30 +407,48 @@ void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_s
 
       //pcl::transformPointCloud (*source, *result, m_sensorTransform);
      
-      PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", m_globalCloud->points.size (), partiallyAlignedFrame->points.size ());
+      //PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", m_globalCloud->points.size (), partiallyAlignedFrame->points.size ());
       pairAlign (m_globalCloud, partiallyAlignedFrame, alignedFrame, alignmentCorrectionTransform, true);
 
       //transform current pair into the global transform
       //pcl::transformPointCloud (*temp, *result, m_sensorTransform);
 
       //update the global transform
+      pcl::PointXYZ pt1(m_sensorTransform(0,3), m_sensorTransform(1,3) ,m_sensorTransform(2,3));
+
       m_sensorTransform = alignmentCorrectionTransform * m_sensorTransform;
+      // m_sensorTransform(0,0) = 1.0;
+      // m_sensorTransform(1,1) = 1.0;
+      // m_sensorTransform(2,2) = 1.0;
+      // m_sensorTransform(3,3) = 1.0;
+
+       pcl::PointXYZ pt2(m_sensorTransform(0,3), m_sensorTransform(1,3) ,m_sensorTransform(2,3));
+
+      std::string id = "line";
+      id += boost::lexical_cast<std::string>(m_frames.size());
+      p->addLine (pt1,pt2,0,0,1, id.c_str()); 
 
       showCloudsLeft(alignedFrame, m_globalCloud);
       
-      PCL_INFO ("downsampling aligned frame\n");
+      //PCL_INFO ("downsampling aligned frame\n");
      //  pcl::transformPointCloud (*source, *result, m_sensorTransform);
       grid.setInputCloud (alignedFrame);
       grid.filter (*downsampledFrame);
 
-      PCL_INFO ("adding aligned frame to map\n");
+      //PCL_INFO ("adding aligned frame to map\n");
      *m_globalCloud += *downsampledFrame;
 
-
+     // if(m_frames.size() % 20 == 0){
+     //   sor.setMeanK (10);
+     //  sor.setStddevMulThresh (2.0);
+     //  sor.setInputCloud (m_globalCloud);
+     //  sor.filter (*m_globalCloud);
+     // }
 
 
       // std::cout << "Alignment Correction: " << std::endl << alignmentCorrectionTransform <<std::endl;
-      std::cout << "New Global Transform: " << std::endl << m_sensorTransform <<std::endl;
+      //std::cout << "New Global Transform: " << std::endl << m_sensorTransform <<std::endl;
+     std::cout << "New Global Position: "  << m_sensorTransform(0,3) << "," << m_sensorTransform(1,3) << "," <<m_sensorTransform(2,3) << "," <<std::endl;
 
     }else{
       *m_globalCloud += *filteredFrame;

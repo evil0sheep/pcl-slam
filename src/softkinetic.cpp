@@ -17,7 +17,7 @@
 // For any question about terms and conditions, please contact:
 // info@softkinetic.com Copyright (c) 2002-2012 Softkinetic Sensors NV
 ////////////////////////////////////////////////////////////////////////////////
-
+#include "../include/pcl_slam.h"
 
 #ifdef _MSC_VER
 #include <windows.h>
@@ -29,6 +29,7 @@
 
 #include <DepthSense.hxx>
 
+
 using namespace DepthSense;
 using namespace std;
 
@@ -36,6 +37,8 @@ Context g_context;
 DepthNode g_dnode;
 ColorNode g_cnode;
 AudioNode g_anode;
+
+SLAMProcessor *g_slamProcessor;
 
 uint32_t g_aFrames = 0;
 uint32_t g_cFrames = 0;
@@ -50,7 +53,7 @@ StereoCameraParameters g_scp;
 // New audio sample event handler
 void onNewAudioSample(AudioNode node, AudioNode::NewSampleReceivedData data)
 {
-    printf("A#%u: %d\n",g_aFrames,data.audioData.size());
+    //printf("A#%u: %d\n",g_aFrames,data.audioData.size());
     g_aFrames++;
 }
 
@@ -58,7 +61,7 @@ void onNewAudioSample(AudioNode node, AudioNode::NewSampleReceivedData data)
 // New color sample event handler
 void onNewColorSample(ColorNode node, ColorNode::NewSampleReceivedData data)
 {
-    printf("C#%u: %d\n",g_cFrames,data.colorMap.size());
+    //printf("C#%u: %d\n",g_cFrames,data.colorMap.size());
     g_cFrames++;
 }
 
@@ -66,40 +69,51 @@ void onNewColorSample(ColorNode node, ColorNode::NewSampleReceivedData data)
 // New depth sample event handler
 void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
 {
-    printf("Z#%u: %d\n",g_dFrames,data.vertices.size());
+    //printf("Z#%u: %d\n",g_dFrames,data.vertices.size());
 
     // Project some 3D points in the Color Frame
-    if (!g_pProjHelper)
-    {
-        g_pProjHelper = new ProjectionHelper (data.stereoCameraParameters);
-        g_scp = data.stereoCameraParameters;
-    }
-    else if (g_scp != data.stereoCameraParameters)
-    {
-        g_pProjHelper->setStereoCameraParameters(data.stereoCameraParameters);
-        g_scp = data.stereoCameraParameters;
-    }
+    // if (!g_pProjHelper)
+    // {
+    //     g_pProjHelper = new ProjectionHelper (data.stereoCameraParameters);
+    //     g_scp = data.stereoCameraParameters;
+    // }
+    // else if (g_scp != data.stereoCameraParameters)
+    // {
+    //     g_pProjHelper->setStereoCameraParameters(data.stereoCameraParameters);
+    //     g_scp = data.stereoCameraParameters;
+    // }
 
-    int32_t w, h;
-    FrameFormat_toResolution(data.captureConfiguration.frameFormat,&w,&h);
-    int cx = w/2;
-    int cy = h/2;
+    // int32_t w, h;
+    // FrameFormat_toResolution(data.captureConfiguration.frameFormat,&w,&h);
+    // int cx = w/2;
+    // int cy = h/2;
 
-    Vertex p3DPoints[4];
+    // Vertex p3DPoints[4];
 
-    p3DPoints[0] = data.vertices[(cy-h/4)*w+cx-w/4];
-    p3DPoints[1] = data.vertices[(cy-h/4)*w+cx+w/4];
-    p3DPoints[2] = data.vertices[(cy+h/4)*w+cx+w/4];
-    p3DPoints[3] = data.vertices[(cy+h/4)*w+cx-w/4];
+    // p3DPoints[0] = data.vertices[(cy-h/4)*w+cx-w/4];
+    // p3DPoints[1] = data.vertices[(cy-h/4)*w+cx+w/4];
+    // p3DPoints[2] = data.vertices[(cy+h/4)*w+cx+w/4];
+    // p3DPoints[3] = data.vertices[(cy+h/4)*w+cx-w/4];
     
-    Point2D p2DPoints[4];
-    g_pProjHelper->get2DCoordinates ( p3DPoints, p2DPoints, 4, CAMERA_PLANE_COLOR);
+    // Point2D p2DPoints[4];
+    // g_pProjHelper->get2DCoordinates ( p3DPoints, p2DPoints, 4, CAMERA_PLANE_COLOR);
     
     g_dFrames++;
 
-    // Quit the main loop after 200 depth frames received
-    if (g_dFrames == 20000000)
-        g_context.quit();
+    // // Quit the main loop after 200 depth frames received
+    // if (g_dFrames == 20000000)
+    //     g_context.quit();
+    pcl::PointCloud<pcl::PointXYZ> frame;
+
+    for(int i=0; i < data.verticesFloatingPoint.size(); i++){
+        DepthSense::FPVertex v = data.verticesFloatingPoint[i];
+
+        if(data.confidenceMap[i] > 100 && v.z > 0){
+            frame.push_back(pcl::PointXYZ(v.x, v.y, v.z));
+        }  
+    }
+
+    g_slamProcessor->addFrame(frame);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -151,7 +165,9 @@ void configureDepthNode()
     config.mode = DepthNode::CAMERA_MODE_CLOSE_MODE;
     config.saturation = true;
 
-    g_dnode.setEnableVertices(true);
+    g_dnode.setEnableVerticesFloatingPoint(true);
+    g_dnode.setEnableConfidenceMap(true);
+
 
     try 
     {
@@ -304,6 +320,8 @@ void onDeviceDisconnected(Context context, Context::DeviceRemovedData data)
 /*----------------------------------------------------------------------------*/
 int main(int argc, char* argv[])
 {
+
+    g_slamProcessor = new SLAMProcessor(argc, argv);
     g_context = Context::create("localhost");
 
     g_context.deviceAddedEvent().connect(&onDeviceConnected);
@@ -322,7 +340,7 @@ int main(int argc, char* argv[])
 
         vector<Node> na = da[0].getNodes();
         
-        printf("Found %u nodes\n",na.size());
+        printf("Found %lu nodes\n",na.size());
         
         for (int n = 0; n < (int)na.size();n++)
             configureNode(na[n]);

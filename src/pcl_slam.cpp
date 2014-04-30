@@ -38,61 +38,25 @@
 /* \author Radu Bogdan Rusu
  * adaptation Raphael Favier*/
 
-#include <boost/make_shared.hpp>
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_representation.h>
 
-#include <pcl/io/pcd_io.h>
 
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/filter.h>
-
-#include <pcl/features/normal_3d.h>
-
-#include <pcl/registration/icp.h>
-#include <pcl/registration/icp_nl.h>
-#include <pcl/registration/transforms.h>
-
-#include <pcl/visualization/pcl_visualizer.h>
+#include "../include/pcl_slam.h"
 
 using pcl::visualization::PointCloudColorHandlerGenericField;
 using pcl::visualization::PointCloudColorHandlerCustom;
 
 //convenient typedefs
-typedef pcl::PointXYZ PointT;
-typedef pcl::PointCloud<PointT> PointCloud;
-typedef pcl::PointNormal PointNormalT;
-typedef pcl::PointCloud<PointNormalT> PointCloudWithNormals;
+// typedef pcl::PointXYZ pcl::PointXYZ;
+// typedef pcl::PointCloud<pcl::PointXYZ> pcl::PointCloud<pcl::PointXYZ>;
+// typedef pcl::PointNormal pcl::PointNormal;
+// typedef pcl::PointCloud<pcl::PointNormal> pcl::PointCloud<pcl::PointNormal>;
 
-// This is a tutorial so we can afford having global variables 
-	//our visualizer
-	pcl::visualization::PCLVisualizer *p;
-	//its left and right viewports
-	int vp_1, vp_2;
-
-//convenient structure to handle our pointclouds
-struct PCD
-{
-  PointCloud::Ptr cloud;
-  std::string f_name;
-
-  PCD() : cloud (new PointCloud) {};
-};
-
-struct PCDComparator
-{
-  bool operator () (const PCD& p1, const PCD& p2)
-  {
-    return (p1.f_name < p2.f_name);
-  }
-};
 
 
 // Define a new point representation for < x, y, z, curvature >
-class MyPointRepresentation : public pcl::PointRepresentation <PointNormalT>
+class MyPointRepresentation : public pcl::PointRepresentation <pcl::PointNormal>
 {
-  using pcl::PointRepresentation<PointNormalT>::nr_dimensions_;
+  using pcl::PointRepresentation<pcl::PointNormal>::nr_dimensions_;
 public:
   MyPointRepresentation ()
   {
@@ -101,7 +65,7 @@ public:
   }
 
   // Override the copyToFloatArray method to define our feature vector
-  virtual void copyToFloatArray (const PointNormalT &p, float * out) const
+  virtual void copyToFloatArray (const pcl::PointNormal &p, float * out) const
   {
     // < x, y, z, curvature >
     out[0] = p.x;
@@ -116,18 +80,18 @@ public:
 /** \brief Display source and target on the first viewport of the visualizer
  *
  */
-void showCloudsLeft(const PointCloud::Ptr cloud_target, const PointCloud::Ptr cloud_source)
+void SLAMProcessor::showCloudsLeft(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_source)
 {
   p->removePointCloud ("vp1_target");
   p->removePointCloud ("vp1_source");
 
-  PointCloudColorHandlerCustom<PointT> tgt_h (cloud_target, 0, 255, 0);
-  PointCloudColorHandlerCustom<PointT> src_h (cloud_source, 255, 0, 0);
+  PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h (cloud_target, 0, 255, 0);
+  PointCloudColorHandlerCustom<pcl::PointXYZ> src_h (cloud_source, 255, 0, 0);
   p->addPointCloud (cloud_target, tgt_h, "vp1_target", vp_1);
   p->addPointCloud (cloud_source, src_h, "vp1_source", vp_1);
 
-  PCL_INFO ("Press q to begin the registration.\n");
-  p-> spin();
+  // PCL_INFO ("Press q to begin the registration.\n");
+  // p-> spin();
 }
 
 
@@ -135,17 +99,17 @@ void showCloudsLeft(const PointCloud::Ptr cloud_target, const PointCloud::Ptr cl
 /** \brief Display source and target on the second viewport of the visualizer
  *
  */
-void showCloudsRight(const PointCloudWithNormals::Ptr cloud_target, const PointCloudWithNormals::Ptr cloud_source)
+void SLAMProcessor::showCloudsRight(const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_target, const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_source)
 {
   p->removePointCloud ("source");
   p->removePointCloud ("target");
 
 
-  PointCloudColorHandlerGenericField<PointNormalT> tgt_color_handler (cloud_target, "curvature");
+  PointCloudColorHandlerGenericField<pcl::PointNormal> tgt_color_handler (cloud_target, "curvature");
   if (!tgt_color_handler.isCapable ())
       PCL_WARN ("Cannot create curvature color handler!");
 
-  PointCloudColorHandlerGenericField<PointNormalT> src_color_handler (cloud_source, "curvature");
+  PointCloudColorHandlerGenericField<pcl::PointNormal> src_color_handler (cloud_source, "curvature");
   if (!src_color_handler.isCapable ())
       PCL_WARN ("Cannot create curvature color handler!");
 
@@ -156,40 +120,39 @@ void showCloudsRight(const PointCloudWithNormals::Ptr cloud_target, const PointC
   p->spinOnce();
 }
 
-////////////////////////////////////////////////////////////////////////////////
-/** \brief Load a set of PCD files that we want to register together
-  * \param argc the number of arguments (pass from main ())
-  * \param argv the actual command line arguments (pass from main ())
-  * \param models the resultant vector of point cloud datasets
-  */
-void loadData (int argc, char **argv, std::vector<PCD, Eigen::aligned_allocator<PCD> > &models)
-{
-  std::string extension (".pcd");
-  // Suppose the first argument is the actual test model
-  for (int i = 1; i < argc; i++)
-  {
-    std::string fname = std::string (argv[i]);
-    // Needs to be at least 5: .plot
-    if (fname.size () <= extension.size ())
-      continue;
+// ////////////////////////////////////////////////////////////////////////////////
+// /** \brief Load a set of PCD files that we want to register together
+//   * \param argc the number of arguments (pass from main ())
+//   * \param argv the actual command line arguments (pass from main ())
+//   * \param models the resultant vector of point cloud datasets
+//   */
+// void loadData (int argc, char **argv, std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > &models)
+// {
+//   std::string extension (".pcd");
+//   // Suppose the first argument is the actual test model
+//   for (int i = 1; i < argc; i++)
+//   {
+//     std::string fname = std::string (argv[i]);
+//     // Needs to be at least 5: .plot
+//     if (fname.size () <= extension.size ())
+//       continue;
 
-    std::transform (fname.begin (), fname.end (), fname.begin (), (int(*)(int))tolower);
+//     std::transform (fname.begin (), fname.end (), fname.begin (), (int(*)(int))tolower);
 
-    //check that the argument is a pcd file
-    if (fname.compare (fname.size () - extension.size (), extension.size (), extension) == 0)
-    {
-      // Load the cloud and saves it into the global list of models
-      PCD m;
-      m.f_name = argv[i];
-      pcl::io::loadPCDFile (argv[i], *m.cloud);
-      //remove NAN points from the cloud
-      std::vector<int> indices;
-      pcl::removeNaNFromPointCloud(*m.cloud,*m.cloud, indices);
+//     //check that the argument is a pcd file
+//     if (fname.compare (fname.size () - extension.size (), extension.size (), extension) == 0)
+//     {
+//       // Load the cloud and saves it into the global list of models
+//       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = new pcl::PointCloud<pcl::PointXYZ>::Ptr();
+//       pcl::io::loadPCDFile (argv[i], *cloud);
+//       //remove NAN points from the cloud
+//       std::vector<int> indices;
+//       pcl::removeNaNFromPointCloud(*m.cloud,*m.cloud, indices);
 
-      models.push_back (m);
-    }
-  }
-}
+//       models.push_back (m);
+//     }
+//   }
+// }
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -199,14 +162,14 @@ void loadData (int argc, char **argv, std::vector<PCD, Eigen::aligned_allocator<
   * \param output the resultant aligned source PointCloud
   * \param final_transform the resultant transform between source and target
   */
-void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt, PointCloud::Ptr output, Eigen::Matrix4f &final_transform, bool downsample = false)
+void SLAMProcessor::pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample)
 {
   //
   // Downsample for consistency and speed
   // \note enable this for large datasets
-  PointCloud::Ptr src (new PointCloud);
-  PointCloud::Ptr tgt (new PointCloud);
-  pcl::VoxelGrid<PointT> grid;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr src (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::VoxelGrid<pcl::PointXYZ> grid;
   if (downsample)
   {
     grid.setLeafSize (0.05, 0.05, 0.05);
@@ -224,10 +187,10 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
 
 
   // Compute surface normals and curvature
-  PointCloudWithNormals::Ptr points_with_normals_src (new PointCloudWithNormals);
-  PointCloudWithNormals::Ptr points_with_normals_tgt (new PointCloudWithNormals);
+  pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_src (new pcl::PointCloud<pcl::PointNormal>);
+  pcl::PointCloud<pcl::PointNormal>::Ptr points_with_normals_tgt (new pcl::PointCloud<pcl::PointNormal>);
 
-  pcl::NormalEstimation<PointT, PointNormalT> norm_est;
+  pcl::NormalEstimation<pcl::PointXYZ, pcl::PointNormal> norm_est;
   pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ> ());
   norm_est.setSearchMethod (tree);
   norm_est.setKSearch (30);
@@ -249,7 +212,7 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
 
   //
   // Align
-  pcl::IterativeClosestPointNonLinear<PointNormalT, PointNormalT> reg;
+  pcl::IterativeClosestPointNonLinear<pcl::PointNormal, pcl::PointNormal> reg;
   reg.setTransformationEpsilon (1e-6);
   // Set the maximum distance between two correspondences (src<->tgt) to 10cm
   // Note: adjust this based on the size of your datasets
@@ -265,7 +228,7 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
   //
   // Run the same optimization in a loop and visualize the results
   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), prev, targetToSource;
-  PointCloudWithNormals::Ptr reg_result = points_with_normals_src;
+  pcl::PointCloud<pcl::PointNormal>::Ptr reg_result = points_with_normals_src;
   reg.setMaximumIterations (2);
   for (int i = 0; i < 30; ++i)
   {
@@ -304,13 +267,13 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
   p->removePointCloud ("source");
   p->removePointCloud ("target");
 
-  PointCloudColorHandlerCustom<PointT> cloud_tgt_h (output, 0, 255, 0);
-  PointCloudColorHandlerCustom<PointT> cloud_src_h (cloud_src, 255, 0, 0);
+  PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_tgt_h (output, 0, 255, 0);
+  PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_src_h (cloud_src, 255, 0, 0);
   p->addPointCloud (output, cloud_tgt_h, "target", vp_2);
   p->addPointCloud (cloud_src, cloud_src_h, "source", vp_2);
 
-	PCL_INFO ("Press q to continue the registration.\n");
-  p->spin ();
+	// PCL_INFO ("Press q to continue the registration.\n");
+ //  p->spin ();
 
   p->removePointCloud ("source"); 
   p->removePointCloud ("target");
@@ -343,7 +306,7 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
 //   p->createViewPort (0.0, 0, 0.5, 1.0, vp_1);
 //   p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
 
-// 	PointCloud::Ptr result (new PointCloud), source, target;
+// 	pcl::PointCloud<pcl::PointXYZ>::Ptr result (new pcl::PointCloud<pcl::PointXYZ>), source, target;
 //   Eigen::Matrix4f GlobalTransform = Eigen::Matrix4f::Identity (), pairTransform;
   
 //   for (size_t i = 1; i < data.size (); ++i)
@@ -354,7 +317,7 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
 //     // Add visualization data
 //     showCloudsLeft(source, target);
 
-//     PointCloud::Ptr temp (new PointCloud);
+//     pcl::PointCloud<pcl::PointXYZ>::Ptr temp (new pcl::PointCloud<pcl::PointXYZ>);
 //     PCL_INFO ("Aligning %s (%d) with %s (%d).\n", data[i-1].f_name.c_str (), source->points.size (), data[i].f_name.c_str (), target->points.size ());
 //     pairAlign (source, target, temp, pairTransform, true);
 
@@ -372,3 +335,42 @@ void pairAlign (const PointCloud::Ptr cloud_src, const PointCloud::Ptr cloud_tgt
 //   }
 // }
 /* ]--- */
+
+ SLAMProcessor::SLAMProcessor(int argc, char** argv)
+  :m_globalTransform(Eigen::Matrix4f::Identity())
+  ,m_globalCloud(new pcl::PointCloud<pcl::PointXYZ>)
+ {
+   p = new pcl::visualization::PCLVisualizer (argc, argv, "Pairwise Incremental Registration");
+   p->createViewPort (0.0, 0, 0.5, 1.0, vp_1);
+   p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
+ }
+
+ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame){
+    pcl::PointCloud<pcl::PointXYZ>::Ptr target = frame.makeShared();
+    if(! m_frames.empty()){
+      pcl::PointCloud<pcl::PointXYZ>::Ptr source = m_frames.back();
+      //pcl::PointCloud<pcl::PointXYZ>::Ptr result (new pcl::PointCloud<pcl::PointXYZ>)
+      pcl::PointCloud<pcl::PointXYZ>::Ptr temp (new pcl::PointCloud<pcl::PointXYZ>);
+      Eigen::Matrix4f pairTransform;
+
+      // Add visualization data
+      showCloudsLeft(source, target);
+
+     
+      PCL_INFO ("Aligning cloud of size %d with cloud of size %d.\n", source->points.size (), target->points.size ());
+      pairAlign (source, target, temp, pairTransform, true);
+
+      //transform current pair into the global transform
+      //pcl::transformPointCloud (*temp, *result, m_globalTransform);
+
+      //update the global transform
+      m_globalTransform = pairTransform * m_globalTransform;
+
+      std::cout << "New Global Transform: " << std::endl << m_globalTransform <<std::endl;
+
+      //m_globalCloud << result;
+    }else{
+      //m_globalCloud << result;
+    }
+    m_frames.push_back(target);
+ }

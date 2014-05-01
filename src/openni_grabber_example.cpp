@@ -2,6 +2,9 @@
  #include <pcl/visualization/cloud_viewer.h>
 #include "../include/pcl_slam.h"
 
+
+     SLAMProcessor *sp;
+
  class SimpleOpenNIViewer
  {
    public:
@@ -29,7 +32,7 @@
 
        interface->start ();
 
-       while (!viewer.wasStopped())
+       while (true)
        {
          boost::this_thread::sleep (boost::posix_time::seconds (1));
        }
@@ -38,11 +41,12 @@
      }
 
      pcl::visualization::CloudViewer viewer;
-     SLAMProcessor *sp;
  };
 
- int main ()
+ int main (int argc, char **argv)
  {
+
+    sp = new SLAMProcessor(argc, argv);
    SimpleOpenNIViewer v;
    v.run ();
    return 0;

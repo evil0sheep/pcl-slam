@@ -4,6 +4,8 @@
 
 
      SLAMProcessor *sp;
+pcl::PointCloud<pcl::PointXYZ> pc;
+int pcwrite;
 
  class SimpleOpenNIViewer
  {
@@ -12,11 +14,16 @@
 
      void cloud_cb_ (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &cloud)
      {
-
-      pcl::PointCloud<pcl::PointXYZ> ptr = *cloud ;
-      pcl::PointCloud<pcl::PointXYZ> ptr2 = pcl::PointCloud<pcl::PointXYZ>(ptr) ;
-      if(!ptr2.empty())
-       sp->addFrame(ptr2);
+//pcl::PointCloud<pcl::PointXYZ> cloud2;
+//cloud2.push_back (pcl::PointXYZ (rand (), rand (), rand ())); 
+//cloud2.push_back (pcl::PointXYZ (rand (), rand (), rand ())); 
+//cloud2.push_back (pcl::PointXYZ (rand (), rand (), rand ())); 
+//cloud2.push_back (pcl::PointXYZ (rand (), rand (), rand ())); 
+      if(!cloud->empty())
+      {
+        pc = *(cloud->makeShared());
+        pcwrite = 1;
+      }
 //       if (!viewer.wasStopped())
 //         viewer.showCloud (cloud);
      }
@@ -34,6 +41,11 @@
 
        while (true)
        {
+         if(pcwrite == 1)
+         {
+pcwrite = 0;
+       sp->addFrame(pc);
+         }
          boost::this_thread::sleep (boost::posix_time::seconds (1));
        }
 
@@ -45,7 +57,7 @@
 
  int main (int argc, char **argv)
  {
-
+pcwrite = 0;
     sp = new SLAMProcessor(argc, argv);
    SimpleOpenNIViewer v;
    v.run ();

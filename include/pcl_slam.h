@@ -19,6 +19,11 @@
 
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/radius_outlier_removal.h>
+
+#include <pcl/features/normal_3d.h>
+#include <pcl/features/fpfh.h>
+#include <pcl/registration/ia_ransac.h>
 
 class SLAMProcessor{
 
@@ -32,6 +37,14 @@ private:
 					pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample = false);
 
 
+/* please save */
+/*	void computeSurfaceNormals (const pcl::PointCloud<pcl::PointXYZ>::Ptr &points, pcl::PointCloud<pcl::Normal>::Ptr &normals);
+	void computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &points, const pcl::PointCloud<pcl::Normal>::Ptr &normals, pcl::PointCloud<pcl::FPFHSignature33>::Ptr &features);
+	static const float normal_radius = 0.02;
+	static const float feature_radius = 0.002;
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr search_method_xyz;
+
+*/
 
 	Eigen::Matrix4f m_sensorTransform ;
 	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > m_frames;
@@ -40,6 +53,7 @@ private:
 	pcl::visualization::PCLVisualizer *p;
 	//its left and right viewports
 	int vp_1, vp_2;
+
 };
 
 #endif

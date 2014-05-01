@@ -238,11 +238,13 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
  SLAMProcessor::SLAMProcessor(int argc, char** argv)
   :m_sensorTransform(Eigen::Matrix4f::Identity())
   ,m_globalCloud(new pcl::PointCloud<pcl::PointXYZ>)
+  ,m_frameCount(0)
   //,search_method_xyz(new pcl::search::KdTree<pcl::PointXYZ>)
  {
    p = new pcl::visualization::PCLVisualizer (argc, argv, "Pairwise Incremental Registration");
    p->createViewPort (0.0, 0, 1.0, 1.0, vp_1);
    //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
+   p->setBackgroundColor(1,1,1);
  }
 
  void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame){
@@ -296,7 +298,7 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
 
       //pcl::transformPointCloud (*source, *result, m_sensorTransform);
      
-      //PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", m_globalCloud->points.size (), partiallyAlignedFrame->points.size ());
+      PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", partiallyAlignedFrame->points.size (), m_globalCloud->points.size ());
       pairAlign (m_globalCloud, partiallyAlignedFrame, alignedFrame, alignmentCorrectionTransform, true);
 
       //transform current pair into the global transform
@@ -336,10 +338,8 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
       // grid.filter (*m_globalCloud);
 
      // if(m_frames.size() % 20 == 0){
-     //   sor.setMeanK (10);
-     //  sor.setStddevMulThresh (2.0);
-     //  sor.setInputCloud (m_globalCloud);
-     //  sor.filter (*m_globalCloud);
+     //   grid.setInputCloud (m_globalCloud);
+     //    grid.filter (*m_globalCloud);
      // }
 
 

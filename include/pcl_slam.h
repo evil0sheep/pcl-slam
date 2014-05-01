@@ -53,6 +53,7 @@ private:
 	pcl::visualization::PCLVisualizer *p;
 	//its left and right viewports
 	int vp_1, vp_2;
+	int m_frameCount;
 
 };
 

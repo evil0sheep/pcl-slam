@@ -1,5 +1,6 @@
  #include <pcl/io/openni_grabber.h>
  #include <pcl/visualization/cloud_viewer.h>
+#include "../include/pcl_slam.h"
 
  class SimpleOpenNIViewer
  {
@@ -8,8 +9,13 @@
 
      void cloud_cb_ (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &cloud)
      {
-       if (!viewer.wasStopped())
-         viewer.showCloud (cloud);
+
+      pcl::PointCloud<pcl::PointXYZ> ptr = *cloud ;
+      pcl::PointCloud<pcl::PointXYZ> ptr2 = pcl::PointCloud<pcl::PointXYZ>(ptr) ;
+      if(!ptr2.empty())
+       sp->addFrame(ptr2);
+//       if (!viewer.wasStopped())
+//         viewer.showCloud (cloud);
      }
 
      void run ()
@@ -32,6 +38,7 @@
      }
 
      pcl::visualization::CloudViewer viewer;
+     SLAMProcessor *sp;
  };
 
  int main ()

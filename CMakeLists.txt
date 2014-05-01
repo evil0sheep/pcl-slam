@@ -7,7 +7,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 
-OPTION(SOFTKINETIC "Build the softkinetic device frontend" ON)
+OPTION(SOFTKINETIC "Build the softkinetic device frontend" OFF)
 IF(SOFTKINETIC)
 	include_directories(/opt/softkinetic/DepthSenseSDK/include/)
 	LINK_DIRECTORIES(/opt/softkinetic/DepthSenseSDK/lib/)
@@ -16,7 +16,7 @@ IF(SOFTKINETIC)
 ENDIF(SOFTKINETIC)
 
 
-#add_executable(opennigrabber src/openni_grabber_example.cpp )
-#target_link_libraries(opennigrabber ${PCL_LIBRARIES})
+add_executable(opennigrabber src/openni_grabber_example.cpp src/pcl_slam.cpp )
+target_link_libraries(opennigrabber ${PCL_COMMON_LIBRARIES} ${PCL_IO_LIBRARIES} ${PCL_FILTERS_LIBRARIES} ${PCL_FEATURES_LIBRARIES} ${PCL_REGISTRATION_LIBRARIES} ${PCL_VISUALIZATION_LIBRARIES})
 
 

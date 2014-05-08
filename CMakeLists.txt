@@ -14,6 +14,7 @@ IF(SOFTKINETIC)
 	LINK_DIRECTORIES(/opt/softkinetic/DepthSenseSDK/lib/)
    	add_executable(softkinetic src/softkinetic.cpp src/pcl_slam.cpp)
 	target_link_libraries(softkinetic ${PCL_COMMON_LIBRARIES} ${PCL_IO_LIBRARIES} ${PCL_FILTERS_LIBRARIES} ${PCL_FEATURES_LIBRARIES} ${PCL_REGISTRATION_LIBRARIES} ${PCL_VISUALIZATION_LIBRARIES}  DepthSense DepthSensePlugins)
+  ENDIF(SOFTKINETIC)
 
 
   OPTION(KINECT "Build the kinect device frontend" ON)

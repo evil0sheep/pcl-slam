@@ -45,7 +45,15 @@
 using pcl::visualization::PointCloudColorHandlerGenericField;
 using pcl::visualization::PointCloudColorHandlerCustom;
 
+void SLAMProcessor::setGridSize(float gridSize)
+{
+  this->gridSize = gridSize;
+}
 
+void SLAMProcessor::setLeafSize(float leafSize)
+{
+  this->leafSize = leafSize;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /** \brief Display source and target on the first viewport of the visualizer
@@ -55,12 +63,10 @@ void SLAMProcessor::showCloudsLeft(const pcl::PointCloud<pcl::PointXYZ>::Ptr clo
 {
   p->removePointCloud ("vp1_target");
   p->removePointCloud ("vp1_source");
-
   PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h (cloud_target, 0, 255, 0);
   PointCloudColorHandlerCustom<pcl::PointXYZ> src_h (cloud_source, 255, 0, 0);
   p->addPointCloud (cloud_target, tgt_h, "vp1_target", vp_1);
   p->addPointCloud (cloud_source, src_h, "vp1_source", vp_1);
-
   // PCL_INFO ("Press q to begin the registration.\n");
   // p-> spin();
   p->spinOnce();
@@ -75,33 +81,35 @@ void SLAMProcessor::showCloudsRight(const pcl::PointCloud<pcl::PointNormal>::Ptr
 {
   p->removePointCloud ("source");
   p->removePointCloud ("target");
-
-
   PointCloudColorHandlerGenericField<pcl::PointNormal> tgt_color_handler (cloud_target, "curvature");
+
   if (!tgt_color_handler.isCapable ())
-      PCL_WARN ("Cannot create curvature color handler!");
+  {
+    PCL_WARN ("Cannot create curvature color handler!");
+  }
 
   PointCloudColorHandlerGenericField<pcl::PointNormal> src_color_handler (cloud_source, "curvature");
-  if (!src_color_handler.isCapable ())
-      PCL_WARN ("Cannot create curvature color handler!");
 
+  if (!src_color_handler.isCapable ())
+  {
+    PCL_WARN ("Cannot create curvature color handler!");
+  }
 
   p->addPointCloud (cloud_target, tgt_color_handler, "target", vp_2);
   p->addPointCloud (cloud_source, src_color_handler, "source", vp_2);
-
   p->spinOnce();
 }
 
 
 
 /*For RANSAC initial alignment, needs keypoint estimation, please save */
-/* 
+/*
 void
 SLAMProcessor::computeSurfaceNormals (const pcl::PointCloud<pcl::PointXYZ>::Ptr &points, pcl::PointCloud<pcl::Normal>::Ptr &normals)
 {
   normals =  pcl::PointCloud<pcl::Normal>::Ptr (new pcl::PointCloud<pcl::Normal>);
 
-  
+
   pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> norm_est;
   norm_est.setInputCloud (points);
   norm_est.setSearchMethod (search_method_xyz);
@@ -125,9 +133,8 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
 }*/
 
 
- void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample)
+void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample)
 {
-
   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), targetToSource, initialTransform;
   //
   // Downsample for consistency and speed
@@ -135,13 +142,13 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
   pcl::PointCloud<pcl::PointXYZ>::Ptr src (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::VoxelGrid<pcl::PointXYZ> grid;
-  float gridSize = 0.10;
+
+  //float gridSize = 0.10;
   if (downsample)
   {
     grid.setLeafSize (gridSize, gridSize, gridSize);
     grid.setInputCloud (cloud_src);
     grid.filter (*src);
-
     grid.setInputCloud (cloud_tgt);
     grid.filter (*tgt);
   }
@@ -152,223 +159,184 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
   }
 
   /* For RANSAC initial alignment, needs keypoint estimation, please save */
-/*  pcl::PointCloud<pcl::PointXYZ>::Ptr src_aligned (new pcl::PointCloud<pcl::PointXYZ>);
+  /*  pcl::PointCloud<pcl::PointXYZ>::Ptr src_aligned (new pcl::PointCloud<pcl::PointXYZ>);
 
-  pcl::SampleConsensusInitialAlignment<pcl::PointXYZ, pcl::PointXYZ, pcl::FPFHSignature33> sac;
-  sac.setMinSampleDistance (gridSize);
-  sac.setMaxCorrespondenceDistance (2 * gridSize);
-  sac.setEuclideanFitnessEpsilon(1e-8);
-  sac.setMaximumIterations (500);
-
-
-  pcl::PointCloud<pcl::FPFHSignature33>::Ptr src_features, tgt_features;
-  pcl::PointCloud<pcl::Normal>::Ptr src_normals, tgt_normals;
-
-  computeSurfaceNormals(src, src_normals);
-  computeSurfaceNormals(tgt, tgt_normals);
-
-  computeLocalFeatures(src, src_normals, src_features);
-  computeLocalFeatures(tgt, tgt_normals, tgt_features);
-
-  std::cout << src->points.size() << ", " << src_normals->points.size() << ", " << src_features->points.size() << std::endl;
-
-  sac.setInputSource (src);
-  sac.setSourceFeatures (src_features);
-
-  sac.setInputTarget (tgt);
-  sac.setTargetFeatures (tgt_features);
-
-  sac.align (*src_aligned);
-  initialTransform = sac.getFinalTransformation();
-
-  if(!sac.hasConverged()){
-    PCL_ERROR ("SAC Alignment did not converge\n");
-  }
-*/
+    pcl::SampleConsensusInitialAlignment<pcl::PointXYZ, pcl::PointXYZ, pcl::FPFHSignature33> sac;
+    sac.setMinSampleDistance (gridSize);
+    sac.setMaxCorrespondenceDistance (2 * gridSize);
+    sac.setEuclideanFitnessEpsilon(1e-8);
+    sac.setMaximumIterations (500);
 
 
+    pcl::PointCloud<pcl::FPFHSignature33>::Ptr src_features, tgt_features;
+    pcl::PointCloud<pcl::Normal>::Ptr src_normals, tgt_normals;
+
+    computeSurfaceNormals(src, src_normals);
+    computeSurfaceNormals(tgt, tgt_normals);
+
+    computeLocalFeatures(src, src_normals, src_features);
+    computeLocalFeatures(tgt, tgt_normals, tgt_features);
+
+    std::cout << src->points.size() << ", " << src_normals->points.size() << ", " << src_features->points.size() << std::endl;
+
+    sac.setInputSource (src);
+    sac.setSourceFeatures (src_features);
+
+    sac.setInputTarget (tgt);
+    sac.setTargetFeatures (tgt_features);
+
+    sac.align (*src_aligned);
+    initialTransform = sac.getFinalTransformation();
+
+    if(!sac.hasConverged()){
+      PCL_ERROR ("SAC Alignment did not converge\n");
+    }
+  */
   pcl::PointCloud<pcl::PointXYZ>::Ptr reg_result (new pcl::PointCloud<pcl::PointXYZ>);
-
   pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> reg;
   reg.setTransformationEpsilon (1e-8);
   // Set the maximum distance between two correspondences (src<->tgt) to 10cm
   // Note: adjust this based on the size of your datasets
-  reg.setMaxCorrespondenceDistance (gridSize); 
-  reg.setMaximumIterations (10); 
+  reg.setMaxCorrespondenceDistance (gridSize);
+  reg.setMaximumIterations (10);
   reg.setEuclideanFitnessEpsilon(1e-8);
   // Set the point representation
   //reg.setPointRepresentation (boost::make_shared<const MyPointRepresentation> (point_representation));
-
   reg.setInputSource (src);
   reg.setInputTarget (tgt);
-
-
-  
   //pcl::PointCloud<pcl::PointNormal>::Ptr reg_result = points_with_normals_tgt;
-   
   reg.setRANSACIterations(1000);
   reg.setRANSACOutlierRejectionThreshold(gridSize);
-
   //std::cout << reg.getEuclideanFitnessEpsilon() << std::endl;
   //std::cout << src->points.size() << ", " << cloud_src->points.size() << ", " << tgt->points.size() << ", " << cloud_tgt->points.size()  << std::endl;
-
   reg.align (*reg_result);
 
-  if(!reg.hasConverged()){
+  if(!reg.hasConverged())
+  {
     PCL_ERROR ("Registration did not converge\n");
   }
 
   //accumulate transformation between each Iteration
   Ti = reg.getFinalTransformation () ;
-
-  
-
-
   targetToSource =  Ti.inverse() ;
-
   pcl::transformPointCloud (*cloud_tgt, *output, targetToSource);
-
-
-  
   final_transform = targetToSource;
- }
+}
 
 void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
-                        void * vd)
+                            void * vd)
 {
-SLAMProcessor * sp = (SLAMProcessor *) vd;
+  SLAMProcessor * sp = (SLAMProcessor *) vd;
+
   if (event.getKeySym () == "r" && event.keyDown ())
   {
     std::cout << "r was pressed => removing all text" << std::endl;
-sp->m_frames.clear(); 
-sp->m_globalCloud->clear();
-sp->m_sensorTransform = Eigen::Matrix4f::Identity();
-sp->p->removeAllShapes();
+    sp->m_frames.clear();
+    sp->m_globalCloud->clear();
+    sp->m_sensorTransform = Eigen::Matrix4f::Identity();
+    sp->p->removeAllShapes();
   }
 }
 
- SLAMProcessor::SLAMProcessor(int argc, char** argv)
-  :m_sensorTransform(Eigen::Matrix4f::Identity())
-  ,m_globalCloud(new pcl::PointCloud<pcl::PointXYZ>)
-  ,m_frameCount(0)
+SLAMProcessor::SLAMProcessor(int argc, char** argv)
+  : m_sensorTransform(Eigen::Matrix4f::Identity())
+  , m_globalCloud(new pcl::PointCloud<pcl::PointXYZ>)
+  , m_frameCount(0)
+  , gridSize(.05)
+  , leafSize(.005)
   //,search_method_xyz(new pcl::search::KdTree<pcl::PointXYZ>)
- {
-   p = new pcl::visualization::PCLVisualizer (argc, argv, "Pairwise Incremental Registration");
-   p->createViewPort (0.0, 0, 1.0, 1.0, vp_1);
-   p->setBackgroundColor(1,1,1);
+{
+  
+  p = new pcl::visualization::PCLVisualizer (argc, argv, "Pairwise Incremental Registration");
+  p->createViewPort (0.0, 0, 1.0, 1.0, vp_1);
+  p->setBackgroundColor(1, 1, 1);
+  p->registerKeyboardCallback (keyboardEventOccurred, (void *) this);
+  //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
+}
 
-p->registerKeyboardCallback (keyboardEventOccurred, (void *) this);
-    //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
- }
+void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame)
+{
+  //pcl::PointCloud<pcl::PointXYZ>::Ptr target = m_globalCloud; //frame.makeShared();
+  //PCL_INFO ("adding frame\n");
+  pcl::PointCloud<pcl::PointXYZ>::Ptr rawFrame = frame.makeShared(); //m_frames.back();
+  pcl::PointCloud<pcl::PointXYZ>::Ptr filteredFrame (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::VoxelGrid<pcl::PointXYZ> grid;
+  //leafSize =0.005;
+  grid.setLeafSize (leafSize, leafSize, leafSize);
+  pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+  sor.setMeanK (10);
+  sor.setStddevMulThresh (1.0);
+  //PCL_INFO ("filtering input\n");
+  std::vector<int> indices;
+  pcl::removeNaNFromPointCloud(*rawFrame, *filteredFrame, indices);
 
- void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame){
-    //pcl::PointCloud<pcl::PointXYZ>::Ptr target = m_globalCloud; //frame.makeShared();
+  //sor.setInputCloud (filteredFrame);
+  //sor.filter (*filteredFrame);
 
-    //PCL_INFO ("adding frame\n");
-    pcl::PointCloud<pcl::PointXYZ>::Ptr rawFrame = frame.makeShared(); //m_frames.back();
-    pcl::PointCloud<pcl::PointXYZ>::Ptr filteredFrame (new pcl::PointCloud<pcl::PointXYZ>);
+  // pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
+  // rorfilter.setInputCloud (filteredFrame);
+  // rorfilter.setRadiusSearch (0.005);
+  // rorfilter.setMinNeighborsInRadius (4);
+  // rorfilter.setNegative (false);
+  // rorfilter.filter (*filteredFrame);
 
+  if(! m_frames.empty())
+  {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr partiallyAlignedFrame (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr alignedFrame (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledFrame (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledMap (new pcl::PointCloud<pcl::PointXYZ>);
+    Eigen::Matrix4f alignmentCorrectionTransform;
+    //PCL_INFO ("applying current alignment\n");
+    pcl::transformPointCloud (*filteredFrame, *partiallyAlignedFrame, m_sensorTransform);
+    // Add visualization data
+    // PCL_INFO ("visualizing\n");
+    // showCloudsLeft(partiallyAlignedFrame, m_globalCloud);
+    //pcl::transformPointCloud (*source, *result, m_sensorTransform);
+    PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", partiallyAlignedFrame->points.size (), m_globalCloud->points.size ());
+    pairAlign (m_globalCloud, partiallyAlignedFrame, alignedFrame, alignmentCorrectionTransform, true);
+    //transform current pair into the global transform
+    //pcl::transformPointCloud (*temp, *result, m_sensorTransform);
+    //update the global transform
+    pcl::PointXYZ pt1(m_sensorTransform(0, 3), m_sensorTransform(1, 3) , m_sensorTransform(2, 3));
+    m_sensorTransform = alignmentCorrectionTransform * m_sensorTransform;
+    // m_sensorTransform(0,0) = 1.0;
+    // m_sensorTransform(1,1) = 1.0;
+    // m_sensorTransform(2,2) = 1.0;
+    // m_sensorTransform(3,3) = 1.0;
+    pcl::PointXYZ pt2(m_sensorTransform(0, 3), m_sensorTransform(1, 3) , m_sensorTransform(2, 3));
+    std::string id = "line";
+    id += boost::lexical_cast<std::string>(m_frames.size());
+    p->addLine (pt1, pt2, 0, 0, 1, id.c_str());
+    grid.setInputCloud (alignedFrame);
+    grid.filter (*downsampledFrame);
+    grid.setInputCloud (m_globalCloud);
+    grid.filter (*downsampledMap);
+    showCloudsLeft(alignedFrame, downsampledMap);
+    //PCL_INFO ("downsampling aligned frame\n");
+    //  pcl::transformPointCloud (*source, *result, m_sensorTransform);
+    // grid.setInputCloud (alignedFrame);
+    // grid.filter (*downsampledFrame);
+    //PCL_INFO ("adding aligned frame to map\n");
+    *m_globalCloud += *downsampledFrame;
+    // grid.setInputCloud (m_globalCloud);
+    // grid.filter (*m_globalCloud);
+    // if(m_frames.size() % 20 == 0){
+    //   grid.setInputCloud (m_globalCloud);
+    //    grid.filter (*m_globalCloud);
+    // }
+    // std::cout << "Alignment Correction: " << std::endl << alignmentCorrectionTransform <<std::endl;
+    //std::cout << "New Global Transform: " << std::endl << m_sensorTransform <<std::endl;
+    //std::cout << "New Global Scale: "  << m_sensorTransform(0,0) << "," << m_sensorTransform(1,1) << "," <<m_sensorTransform(2,2) << "," <<std::endl;
+    //std::cout << "New Global Position: "  << m_sensorTransform(0,3) << "," << m_sensorTransform(1,3) << "," <<m_sensorTransform(2,3) << "," <<std::endl;
+  }
+  else
+  {
+    // grid.setInputCloud (filteredFrame);
+    // grid.filter (*filteredFrame);
+    *m_globalCloud += *filteredFrame;
+  }
 
+  m_frames.push_back(filteredFrame);
+}
 
-    pcl::VoxelGrid<pcl::PointXYZ> grid;
-    float leafSize =0.005;
-    grid.setLeafSize (leafSize, leafSize, leafSize);
-
-    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor; 
-    sor.setMeanK (10);
-    sor.setStddevMulThresh (1.0);
-
-
-    //PCL_INFO ("filtering input\n");
-    std::vector<int> indices; 
-    pcl::removeNaNFromPointCloud(*rawFrame,*filteredFrame, indices); 
-
-    //sor.setInputCloud (filteredFrame);
-    //sor.filter (*filteredFrame);
-
-    // pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
-    // rorfilter.setInputCloud (filteredFrame);
-    // rorfilter.setRadiusSearch (0.005);
-    // rorfilter.setMinNeighborsInRadius (4);
-    // rorfilter.setNegative (false);
-    // rorfilter.filter (*filteredFrame);
-
-
-    if(! m_frames.empty()){
-      
-      pcl::PointCloud<pcl::PointXYZ>::Ptr partiallyAlignedFrame (new pcl::PointCloud<pcl::PointXYZ>);
-      pcl::PointCloud<pcl::PointXYZ>::Ptr alignedFrame (new pcl::PointCloud<pcl::PointXYZ>);
-      pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledFrame (new pcl::PointCloud<pcl::PointXYZ>);
-      pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledMap (new pcl::PointCloud<pcl::PointXYZ>);
-      Eigen::Matrix4f alignmentCorrectionTransform;
-
-      //PCL_INFO ("applying current alignment\n");
-      pcl::transformPointCloud (*filteredFrame, *partiallyAlignedFrame, m_sensorTransform);
-
-
-      // Add visualization data
-      // PCL_INFO ("visualizing\n");
-      // showCloudsLeft(partiallyAlignedFrame, m_globalCloud);
-
-      //pcl::transformPointCloud (*source, *result, m_sensorTransform);
-     
-      PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", partiallyAlignedFrame->points.size (), m_globalCloud->points.size ());
-      pairAlign (m_globalCloud, partiallyAlignedFrame, alignedFrame, alignmentCorrectionTransform, true);
-
-      //transform current pair into the global transform
-      //pcl::transformPointCloud (*temp, *result, m_sensorTransform);
-
-      //update the global transform
-      pcl::PointXYZ pt1(m_sensorTransform(0,3), m_sensorTransform(1,3) ,m_sensorTransform(2,3));
-
-      m_sensorTransform = alignmentCorrectionTransform * m_sensorTransform;
-      // m_sensorTransform(0,0) = 1.0;
-      // m_sensorTransform(1,1) = 1.0;
-      // m_sensorTransform(2,2) = 1.0;
-      // m_sensorTransform(3,3) = 1.0;
-
-       pcl::PointXYZ pt2(m_sensorTransform(0,3), m_sensorTransform(1,3) ,m_sensorTransform(2,3));
-
-      std::string id = "line";
-      id += boost::lexical_cast<std::string>(m_frames.size());
-      p->addLine (pt1,pt2,0,0,1, id.c_str()); 
-
-      grid.setInputCloud (alignedFrame);
-      grid.filter (*downsampledFrame);
-
-      grid.setInputCloud (m_globalCloud);
-      grid.filter (*downsampledMap);
-
-      showCloudsLeft(alignedFrame, downsampledMap);
-      
-      //PCL_INFO ("downsampling aligned frame\n");
-     //  pcl::transformPointCloud (*source, *result, m_sensorTransform);
-      // grid.setInputCloud (alignedFrame);
-      // grid.filter (*downsampledFrame);
-
-      //PCL_INFO ("adding aligned frame to map\n");
-     *m_globalCloud += *downsampledFrame;
-      // grid.setInputCloud (m_globalCloud);
-      // grid.filter (*m_globalCloud);
-
-     // if(m_frames.size() % 20 == 0){
-     //   grid.setInputCloud (m_globalCloud);
-     //    grid.filter (*m_globalCloud);
-     // }
-
-
-      // std::cout << "Alignment Correction: " << std::endl << alignmentCorrectionTransform <<std::endl;
-      //std::cout << "New Global Transform: " << std::endl << m_sensorTransform <<std::endl;
-      //std::cout << "New Global Scale: "  << m_sensorTransform(0,0) << "," << m_sensorTransform(1,1) << "," <<m_sensorTransform(2,2) << "," <<std::endl;
-     //std::cout << "New Global Position: "  << m_sensorTransform(0,3) << "," << m_sensorTransform(1,3) << "," <<m_sensorTransform(2,3) << "," <<std::endl;
-
-    }else{
-      // grid.setInputCloud (filteredFrame);
-      // grid.filter (*filteredFrame);
-      *m_globalCloud += *filteredFrame;
-
-    }
-
-    m_frames.push_back(filteredFrame);
-    
- }

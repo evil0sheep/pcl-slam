@@ -49,7 +49,7 @@ bool available = false;
            available = false;
 pcl::PointCloud<pcl::PointXYZ> pc2;
                         pcl::copyPointCloud(pc,pc2); 
-       sp->addFrame(pc2);
+       sp->addFrame(pc2,false);
        mtx.unlock();
          }
        }

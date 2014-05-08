@@ -113,7 +113,7 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
         }  
     }
 
-    g_slamProcessor->addFrame(frame);
+    g_slamProcessor->addFrame(frame,true);
 }
 
 /*----------------------------------------------------------------------------*/

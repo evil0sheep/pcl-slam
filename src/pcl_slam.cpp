@@ -246,7 +246,8 @@ SLAMProcessor::SLAMProcessor(int argc, char** argv)
   , leafSize(.005)
   //,search_method_xyz(new pcl::search::KdTree<pcl::PointXYZ>)
 {
-  
+  gridSize = atof(argv[1]); 
+  leafSize = atof(argv[2]); 
   p = new pcl::visualization::PCLVisualizer (argc, argv, "Pairwise Incremental Registration");
   p->createViewPort (0.0, 0, 1.0, 1.0, vp_1);
   p->setBackgroundColor(1, 1, 1);
@@ -254,7 +255,7 @@ SLAMProcessor::SLAMProcessor(int argc, char** argv)
   //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
 }
 
-void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame)
+void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
 {
   //pcl::PointCloud<pcl::PointXYZ>::Ptr target = m_globalCloud; //frame.makeShared();
   //PCL_INFO ("adding frame\n");
@@ -270,8 +271,11 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame)
   std::vector<int> indices;
   pcl::removeNaNFromPointCloud(*rawFrame, *filteredFrame, indices);
 
-  //sor.setInputCloud (filteredFrame);
-  //sor.filter (*filteredFrame);
+  if(filter)
+  {
+  sor.setInputCloud (filteredFrame);
+  sor.filter (*filteredFrame);
+  }
 
   // pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
   // rorfilter.setInputCloud (filteredFrame);

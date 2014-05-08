@@ -29,7 +29,7 @@ class SLAMProcessor{
 
 public:
 	SLAMProcessor(int argc, char** argv);
-	void addFrame(pcl::PointCloud<pcl::PointXYZ> &frame);
+	void addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter);
 	Eigen::Matrix4f m_sensorTransform ;
 	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > m_frames;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr m_globalCloud;

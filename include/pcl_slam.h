@@ -30,6 +30,10 @@ class SLAMProcessor{
 public:
 	SLAMProcessor(int argc, char** argv);
 	void addFrame(pcl::PointCloud<pcl::PointXYZ> &frame);
+	Eigen::Matrix4f m_sensorTransform ;
+	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > m_frames;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr m_globalCloud;
+	pcl::visualization::PCLVisualizer *p;
 private:
 	void showCloudsLeft(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_source);
 	void showCloudsRight(const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_target, const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_source);
@@ -46,11 +50,7 @@ private:
 
 */
 
-	Eigen::Matrix4f m_sensorTransform ;
-	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > m_frames;
-	pcl::PointCloud<pcl::PointXYZ>::Ptr m_globalCloud;
 	//our visualizer
-	pcl::visualization::PCLVisualizer *p;
 	//its left and right viewports
 	int vp_1, vp_2;
 

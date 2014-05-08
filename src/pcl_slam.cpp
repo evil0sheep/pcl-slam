@@ -135,7 +135,7 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
   pcl::PointCloud<pcl::PointXYZ>::Ptr src (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::VoxelGrid<pcl::PointXYZ> grid;
-  float gridSize = 0.05;
+  float gridSize = 0.10;
   if (downsample)
   {
     grid.setLeafSize (gridSize, gridSize, gridSize);
@@ -233,7 +233,19 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
   final_transform = targetToSource;
  }
 
-
+void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
+                        void * vd)
+{
+SLAMProcessor * sp = (SLAMProcessor *) vd;
+  if (event.getKeySym () == "r" && event.keyDown ())
+  {
+    std::cout << "r was pressed => removing all text" << std::endl;
+sp->m_frames.clear(); 
+sp->m_globalCloud->clear();
+sp->m_sensorTransform = Eigen::Matrix4f::Identity();
+sp->p->removeAllShapes();
+  }
+}
 
  SLAMProcessor::SLAMProcessor(int argc, char** argv)
   :m_sensorTransform(Eigen::Matrix4f::Identity())
@@ -242,7 +254,9 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
  {
    p = new pcl::visualization::PCLVisualizer (argc, argv, "Pairwise Incremental Registration");
    p->createViewPort (0.0, 0, 1.0, 1.0, vp_1);
-   //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
+
+p->registerKeyboardCallback (keyboardEventOccurred, (void *) this);
+    //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
  }
 
  void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame){
@@ -267,8 +281,8 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
     std::vector<int> indices; 
     pcl::removeNaNFromPointCloud(*rawFrame,*filteredFrame, indices); 
 
-    sor.setInputCloud (filteredFrame);
-    sor.filter (*filteredFrame);
+    //sor.setInputCloud (filteredFrame);
+    //sor.filter (*filteredFrame);
 
     // pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
     // rorfilter.setInputCloud (filteredFrame);

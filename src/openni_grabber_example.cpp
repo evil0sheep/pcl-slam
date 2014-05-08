@@ -2,15 +2,16 @@
  #include <pcl/visualization/cloud_viewer.h>
 #include "../include/pcl_slam.h"
 
-
      SLAMProcessor *sp;
 pcl::PointCloud<pcl::PointXYZ> pc;
 int pcwrite;
+boost::mutex mtx;
+bool available = false;
 
  class SimpleOpenNIViewer
  {
    public:
-     SimpleOpenNIViewer () : viewer ("PCL OpenNI Viewer") {}
+     SimpleOpenNIViewer ()  {}
 
      void cloud_cb_ (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &cloud)
      {
@@ -21,8 +22,10 @@ int pcwrite;
 //cloud2.push_back (pcl::PointXYZ (rand (), rand (), rand ())); 
       if(!cloud->empty())
       {
-        pc = *(cloud->makeShared());
-        pcwrite = 1;
+        mtx.lock();
+        available = true;
+        pc = *cloud;
+        mtx.unlock();
       }
 //       if (!viewer.wasStopped())
 //         viewer.showCloud (cloud);
@@ -41,18 +44,20 @@ int pcwrite;
 
        while (true)
        {
-         if(pcwrite == 1)
+         if(available && mtx.try_lock())
          {
-pcwrite = 0;
-       sp->addFrame(pc);
+           available = false;
+pcl::PointCloud<pcl::PointXYZ> pc2;
+                        pcl::copyPointCloud(pc,pc2); 
+       sp->addFrame(pc2);
+       mtx.unlock();
          }
-         boost::this_thread::sleep (boost::posix_time::seconds (1));
        }
 
        interface->stop ();
      }
 
-     pcl::visualization::CloudViewer viewer;
+     //pcl::visualization::CloudViewer viewer;
  };
 
  int main (int argc, char **argv)

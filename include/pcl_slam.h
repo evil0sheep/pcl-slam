@@ -51,7 +51,7 @@ private:
 	void showCloudsRight(const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_target, const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_source);
 	void pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt,
 					pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample = false);
-	void computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr);
+	void computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr, pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_ptr);
   float leafSize;
   float gridSize;
 

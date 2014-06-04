@@ -76,8 +76,13 @@ void SLAMProcessor::showCloudsLeft(const pcl::PointCloud<pcl::PointXYZ>::Ptr clo
   p->removePointCloud ("vp1_source");
   PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h (cloud_target, 0, 255, 0);
   PointCloudColorHandlerCustom<pcl::PointXYZ> src_h (cloud_source, 255, 0, 0);
+
+
   p->addPointCloud (cloud_target, tgt_h, "vp1_target", vp_1);
- // p->addPointCloud (cloud_source, src_h, "vp1_source", vp_1);
+  p->addPointCloud (cloud_source, src_h, "vp1_source", vp_1);
+
+   p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "vp1_target");
+   p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "vp1_source");
   // PCL_INFO ("Press q to begin the registration.\n");
   // p-> spin();
   p->spinOnce();
@@ -144,7 +149,7 @@ SLAMProcessor::computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &
 }
 
 
-void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr){
+void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr, pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_ptr){
 
   pcl::PointCloud<pcl::PointXYZ>& point_cloud = *point_cloud_ptr;
   pcl::PointCloud<pcl::PointWithViewpoint> far_ranges;
@@ -244,7 +249,7 @@ void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr poin
   pcl::RangeImageBorderExtractor range_image_border_extractor;
   pcl::NarfKeypoint narf_keypoint_detector (&range_image_border_extractor);
   narf_keypoint_detector.setRangeImage (&range_image);
-  narf_keypoint_detector.getParameters ().support_size = 0.01f;
+  narf_keypoint_detector.getParameters ().support_size = 0.1f;
   //narf_keypoint_detector.getParameters ().add_points_on_straight_edges = true;
    narf_keypoint_detector.getParameters ().distance_for_additional_points = 0.01;
   //narf_keypoint_detector.getParameters ().use_recursive_scale_reduction = true;
@@ -283,19 +288,19 @@ void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr poin
   // -------------------------------------
   // -----Show keypoints in 3D viewer-----
   // -------------------------------------
-  pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_ptr (new pcl::PointCloud<pcl::PointXYZ>);
+  //pcl::PointCloud<pcl::PointXYZ>::Ptr keypoints_ptr (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>& keypoints = *keypoints_ptr;
   keypoints.points.resize (keypoint_indices.points.size ());
   for (size_t i=0; i<keypoint_indices.points.size (); ++i)
     keypoints.points[i].getVector3fMap () = range_image.points[keypoint_indices.points[i]].getVector3fMap ();
 
 
-  *m_keypointsCloud += *keypoints_ptr;
-  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> keypoints_color_handler (m_keypointsCloud, 0, 0, 0);
+  // *m_keypointsCloud += *keypoints_ptr;
+  // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> keypoints_color_handler (m_keypointsCloud, 0, 0, 0);
 
-  p->removePointCloud ("keypoints");
-  p->addPointCloud<pcl::PointXYZ> (m_keypointsCloud, keypoints_color_handler, "keypoints");
-  p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "keypoints");
+  // p->removePointCloud ("keypoints");
+  // p->addPointCloud<pcl::PointXYZ> (m_keypointsCloud, keypoints_color_handler, "keypoints");
+  // p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "keypoints");
   
 }
 
@@ -309,9 +314,10 @@ void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sr
   // \note enable this for large datasets
   pcl::PointCloud<pcl::PointXYZ>::Ptr src (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr tgt (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr tgt_keypoints (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::VoxelGrid<pcl::PointXYZ> grid;
 
-
+;
   //float gridSize = 0.10;
   if (downsample)
   {
@@ -332,48 +338,50 @@ void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sr
   // printf("computing keypoints for src cloud of size %lu\n", src->size());
   // computeNarfKeypoint(cloud_src);
 
-  printf("computing keypoints for tgt cloud of size %lu\n", tgt->size());
-  computeNarfKeypoint(cloud_tgt);
+  computeNarfKeypoint(cloud_tgt, tgt_keypoints);
+
+  tgt = tgt_keypoints;
 
   double t1 = get_wall_time();
 
   printf("computing keypoints took %f second\n", t1-t0);
 
   /* For RANSAC initial alignment, needs keypoint estimation, please save */
-    // pcl::PointCloud<pcl::PointXYZ>::Ptr src_aligned (new pcl::PointCloud<pcl::PointXYZ>);
+  //   pcl::PointCloud<pcl::PointXYZ>::Ptr src_aligned (new pcl::PointCloud<pcl::PointXYZ>);
 
-    // pcl::SampleConsensusInitialAlignment<pcl::PointXYZ, pcl::PointXYZ, pcl::FPFHSignature33> sac;
-    // sac.setMinSampleDistance (gridSize);
-    // sac.setMaxCorrespondenceDistance (2 * gridSize);
-    // sac.setEuclideanFitnessEpsilon(1e-8);
-    // sac.setMaximumIterations (500);
-
-
-    // pcl::PointCloud<pcl::FPFHSignature33>::Ptr src_features, tgt_features;
-    // pcl::PointCloud<pcl::Normal>::Ptr src_normals, tgt_normals;
-
-    // computeSurfaceNormals(src, src_normals);
-    // computeSurfaceNormals(tgt, tgt_normals);
-
-    // computeLocalFeatures(src, src_normals, src_features);
-    // computeLocalFeatures(tgt, tgt_normals, tgt_features);
-
-    // std::cout << src->points.size() << ", " << src_normals->points.size() << ", " << src_features->points.size() << std::endl;
-
-    // sac.setInputSource (src);
-    // sac.setSourceFeatures (src_features);
-
-    // sac.setInputTarget (tgt);
-    // sac.setTargetFeatures (tgt_features);
-
-    // sac.align (*src_aligned);
-    // initialTransform = sac.getFinalTransformation();
-
-    // if(!sac.hasConverged()){
-    //   PCL_ERROR ("SAC Alignment did not converge\n");
-    // }
+  //   pcl::SampleConsensusInitialAlignment<pcl::PointXYZ, pcl::PointXYZ, pcl::FPFHSignature33> sac;
+  //   sac.setMinSampleDistance (gridSize);
+  //   sac.setMaxCorrespondenceDistance (2 * gridSize);
+  //   sac.setEuclideanFitnessEpsilon(1e-8);
+  //   sac.setMaximumIterations (5000);
 
 
+  //   pcl::PointCloud<pcl::FPFHSignature33>::Ptr src_features, tgt_features;
+  //   pcl::PointCloud<pcl::Normal>::Ptr src_normals, tgt_normals;
+
+  //   computeSurfaceNormals(src, src_normals);
+  //   computeSurfaceNormals(tgt, tgt_normals);
+
+  //   computeLocalFeatures(src, src_normals, src_features);
+  //   computeLocalFeatures(tgt, tgt_normals, tgt_features);
+
+  //   std::cout << src->points.size() << ", " << src_normals->points.size() << ", " << src_features->points.size() << std::endl;
+  //   std::cout << tgt->points.size() << ", " << tgt_normals->points.size() << ", " << tgt_features->points.size() << std::endl;
+
+  //   sac.setInputSource (src);
+  //   sac.setSourceFeatures (src_features);
+
+  //   sac.setInputTarget (tgt);
+  //   sac.setTargetFeatures (tgt_features);
+
+  //   sac.align (*src_aligned);
+  //   initialTransform = sac.getFinalTransformation();
+
+  //   if(!sac.hasConverged()){
+  //     PCL_ERROR ("SAC Alignment did not converge\n");
+  //   }
+
+  // pcl::transformPointCloud (*tgt, *tgt, initialTransform);
 
   
   pcl::PointCloud<pcl::PointXYZ>::Ptr reg_result (new pcl::PointCloud<pcl::PointXYZ>);
@@ -403,7 +411,7 @@ void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sr
   //accumulate transformation between each Iteration
   Ti = reg.getFinalTransformation () ;
   targetToSource =  Ti.inverse() ;
-  pcl::transformPointCloud (*cloud_tgt, *output, targetToSource);
+  pcl::transformPointCloud (*tgt_keypoints, *output, targetToSource);
   final_transform = targetToSource;
 }
 
@@ -475,6 +483,8 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
   // rorfilter.setNegative (false);
   // rorfilter.filter (*filteredFrame);
 
+  bool  downsample =false;
+
   if(! m_frames.empty())
   {
     pcl::PointCloud<pcl::PointXYZ>::Ptr partiallyAlignedFrame (new pcl::PointCloud<pcl::PointXYZ>);
@@ -489,7 +499,8 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     // showCloudsLeft(partiallyAlignedFrame, m_globalCloud);
     //pcl::transformPointCloud (*source, *result, m_sensorTransform);
     PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", partiallyAlignedFrame->points.size (), m_globalCloud->points.size ());
-    pairAlign (m_globalCloud, partiallyAlignedFrame, alignedFrame, alignmentCorrectionTransform, true);
+    pairAlign (m_globalCloud, partiallyAlignedFrame, alignedFrame, alignmentCorrectionTransform, downsample);
+
     //transform current pair into the global transform
     //pcl::transformPointCloud (*temp, *result, m_sensorTransform);
     //update the global transform
@@ -503,17 +514,30 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     std::string id = "line";
     id += boost::lexical_cast<std::string>(m_frames.size());
     p->addLine (pt1, pt2, 0, 0, 1, id.c_str());
-    grid.setInputCloud (alignedFrame);
-    grid.filter (*downsampledFrame);
-    grid.setInputCloud (m_globalCloud);
-    grid.filter (*downsampledMap);
-    showCloudsLeft(alignedFrame, downsampledMap);
+
+    if(downsample){
+      grid.setInputCloud (alignedFrame);
+      grid.filter (*downsampledFrame);
+      grid.setInputCloud (m_globalCloud);
+      grid.filter (*downsampledMap);
+      showCloudsLeft(alignedFrame, downsampledMap);
+      *m_globalCloud += *downsampledFrame;
+    }else{
+      showCloudsLeft(alignedFrame, m_globalCloud);
+      *m_globalCloud += *alignedFrame;
+    }
+
+    // sor.setMeanK (50);
+    // sor.setStddevMulThresh (4.0);
+    // sor.setInputCloud (m_globalCloud);
+    // sor.filter (*m_globalCloud);
+    
     //PCL_INFO ("downsampling aligned frame\n");
     //  pcl::transformPointCloud (*source, *result, m_sensorTransform);
     // grid.setInputCloud (alignedFrame);
     // grid.filter (*downsampledFrame);
     //PCL_INFO ("adding aligned frame to map\n");
-    *m_globalCloud += *downsampledFrame;
+    
     // grid.setInputCloud (m_globalCloud);
     // grid.filter (*m_globalCloud);
     // if(m_frames.size() % 20 == 0){
@@ -529,10 +553,12 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
   {
     // grid.setInputCloud (filteredFrame);
     // grid.filter (*filteredFrame);
+    computeNarfKeypoint(filteredFrame, filteredFrame);
     *m_globalCloud += *filteredFrame;
   }
 
-  m_frames.push_back(filteredFrame);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr foo (new pcl::PointCloud<pcl::PointXYZ>);
+  m_frames.push_back(foo);
   double t1 = get_wall_time();
   printf("frame processing took %f seconds\n", t1-t0);
 }

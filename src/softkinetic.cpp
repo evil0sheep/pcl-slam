@@ -108,12 +108,12 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
     for(int i=0; i < data.verticesFloatingPoint.size(); i++){
         DepthSense::FPVertex v = data.verticesFloatingPoint[i];
 
-        if(data.confidenceMap[i] > 400 && v.z > 0){
+        if(data.confidenceMap[i] > 00 && v.z > 0){
             frame.push_back(pcl::PointXYZ(-v.x, v.y, v.z));
         }  
     }
 
-    g_slamProcessor->addFrame(frame,true);
+    g_slamProcessor->addFrame(frame,false);
 }
 
 /*----------------------------------------------------------------------------*/

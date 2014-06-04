@@ -5,6 +5,7 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_representation.h>
+#include <pcl/impl/point_types.hpp>
 
 #include <pcl/io/pcd_io.h>
 
@@ -25,6 +26,13 @@
 #include <pcl/features/fpfh.h>
 #include <pcl/registration/ia_ransac.h>
 
+#include <pcl/keypoints/sift_keypoint.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/range_image/range_image.h>
+#include <pcl/features/range_image_border_extractor.h>
+#include <pcl/keypoints/narf_keypoint.h>
+#include <pcl/visualization/range_image_visualizer.h>
+
 class SLAMProcessor{
 
 public:
@@ -33,6 +41,7 @@ public:
 	Eigen::Matrix4f m_sensorTransform ;
 	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > m_frames;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr m_globalCloud;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr m_keypointsCloud;
 	pcl::visualization::PCLVisualizer *p;
   void setGridSize(float gridSize);
   void setLeafSize(float leafSize);
@@ -42,17 +51,18 @@ private:
 	void showCloudsRight(const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_target, const pcl::PointCloud<pcl::PointNormal>::Ptr cloud_source);
 	void pairAlign (const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt,
 					pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample = false);
+	void computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr);
   float leafSize;
   float gridSize;
 
 /* please save */
-/*	void computeSurfaceNormals (const pcl::PointCloud<pcl::PointXYZ>::Ptr &points, pcl::PointCloud<pcl::Normal>::Ptr &normals);
+	void computeSurfaceNormals (const pcl::PointCloud<pcl::PointXYZ>::Ptr &points, pcl::PointCloud<pcl::Normal>::Ptr &normals);
 	void computeLocalFeatures (const pcl::PointCloud<pcl::PointXYZ>::Ptr &points, const pcl::PointCloud<pcl::Normal>::Ptr &normals, pcl::PointCloud<pcl::FPFHSignature33>::Ptr &features);
 	static const float normal_radius = 0.02;
 	static const float feature_radius = 0.002;
 	pcl::search::KdTree<pcl::PointXYZ>::Ptr search_method_xyz;
 
-*/
+	pcl::visualization::RangeImageVisualizer range_image_widget;
 
 	//our visualizer
 	//its left and right viewports

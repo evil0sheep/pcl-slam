@@ -50,6 +50,7 @@ public:
 	pcl::visualization::PCLVisualizer *p;
   void setGridSize(float gridSize);
   void setLeafSize(float leafSize);
+  	unsigned long totalPoints;
 
 private:
 	void showCloudsLeft(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_source);
@@ -74,6 +75,10 @@ private:
 	int vp_1, vp_2;
 	int m_frameCount;
 	DoubleExpFilter *m_filter;
+	double lastFrameEndTime;
+
+	double param1, param2;
+
 };
 
 #endif

@@ -429,6 +429,8 @@ void keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event,
     std::cout << "r was pressed => removing all text" << std::endl;
     sp->m_frames.clear();
     sp->m_globalCloud->clear();
+    sp->m_filteredCloud->clear();
+    sp->m_unfilteredCloud->clear();
     sp->m_sensorTransform = Eigen::Matrix4f::Identity();
     sp->p->removeAllShapes();
   }
@@ -438,6 +440,8 @@ SLAMProcessor::SLAMProcessor(int argc, char** argv)
   : m_sensorTransform(Eigen::Matrix4f::Identity())
   , m_globalCloud(new pcl::PointCloud<pcl::PointXYZ>)
   , m_keypointsCloud(new pcl::PointCloud<pcl::PointXYZ>)
+  , m_filteredCloud(new pcl::PointCloud<pcl::PointXYZ>)
+  , m_unfilteredCloud(new pcl::PointCloud<pcl::PointXYZ>)
   , m_frameCount(0)
   , gridSize(.05)
   , leafSize(.005)
@@ -555,6 +559,33 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     // m_sensorTransform(1, 3) = pt3.y;
     // m_sensorTransform(2, 3) = pt3.z;
 
+    glm::dvec3 filterStart = m_filter->getCurrentPosition();
+    glm::dvec3 filterEnd = m_filter->updatePosition(glm::dvec3(pt2.x, pt2.y, pt2.z));
+    glm::dvec3 filterVec = filterEnd - filterStart;
+    glm::dvec3 unfVec = glm::dvec3(pt2.x, pt2.y, pt2.z) - glm::dvec3(pt1.x, pt1.y, pt1.z);
+
+    for (int i = 1; i <= 15; i++) {
+      glm::dvec3 interpFilt = filterStart + (filterVec * (1.0 / 15.0 * i));
+      glm::dvec3 interpUnf = glm::dvec3(pt1.x, pt1.y, pt1.z) + (unfVec * (1.0 / 15.0 * i));
+      m_unfilteredCloud->push_back(pcl::PointXYZ(interpUnf.x, interpUnf.y, interpUnf.z));
+      m_filteredCloud->push_back(pcl::PointXYZ(interpFilt.x, interpFilt.y, interpFilt.z));
+    }
+
+    p->removePointCloud ("unfiltered_cloud");
+    p->removePointCloud ("filtered_cloud");
+    PointCloudColorHandlerCustom<pcl::PointXYZ> unf_h (m_unfilteredCloud, 255, 0, 255);
+    PointCloudColorHandlerCustom<pcl::PointXYZ> fil_h (m_filteredCloud, 0, 0, 255);
+
+
+    p->addPointCloud (m_unfilteredCloud, unf_h, "unfiltered_cloud", vp_1);
+    p->addPointCloud (m_filteredCloud, fil_h, "filtered_cloud", vp_1);
+
+    p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "unfiltered_cloud");
+    p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "filtered_cloud");
+    p->spinOnce();
+
+
+/*
     std::string id = "line";
     id += boost::lexical_cast<std::string>(m_frames.size());
     p->addLine (pt1, pt2, 0, 1, 1, id.c_str());
@@ -566,7 +597,7 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     pcl::PointXYZ fpt1(originalPoint.x, originalPoint.y, originalPoint.z);
     pcl::PointXYZ fpt2(newPoint.x, newPoint.y, newPoint.z);
     p->addLine(fpt1, fpt2, 1, 0, 1, filterLineId);
-
+*/
     if(downsample){
       grid.setInputCloud (alignedFrame);
       grid.filter (*downsampledFrame);

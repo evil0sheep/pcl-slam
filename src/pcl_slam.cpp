@@ -519,14 +519,15 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
         if(m_frames.size() > n * i){
           int firstIndex = m_frames.size() - n * i;
           firstIndex = (firstIndex / i) * i;
-          for(int j = firstIndex; j < m_frames.size(); j+=i){
+          int j;
+          for(j = firstIndex; j < m_frames.size(); j+=i){
             *sourceFrame += *(m_frames[j]);
           }
-          // //printf("have %lu frames, taking %d frames at intervals of %d\n", m_frames.size(), n, i);
-          // for(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> >::iterator
-          //  it = m_frames.begin() + firstIndex ; it != m_frames.end(); it += i){
-          //   *sourceFrame += **it;
-          // }
+
+          for(j; j < m_frames.size(); j++){
+            *sourceFrame += *(m_frames[j]);
+          }
+
           break;
         }
         
@@ -592,12 +593,21 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     glm::dvec3 filterStart = m_filter->getCurrentPosition();
     glm::dvec3 filterEnd = m_filter->updatePosition(glm::dvec3(pt2.x, pt2.y, pt2.z));
     glm::dvec3 filterVec = filterEnd - filterStart;
-    glm::dvec3 unfVec = glm::dvec3(pt2.x, pt2.y, pt2.z) - glm::dvec3(pt1.x, pt1.y, pt1.z);
+    glm::dvec3 unfStart = glm::dvec3(pt1.x, pt1.y, pt1.z);
+    glm::dvec3 unfEnd = glm::dvec3(pt2.x, pt2.y, pt2.z);
+    glm::dvec3 unfVec = unfEnd - unfStart;
 
-    for (int i = 1; i <= 15; i++) {
-      glm::dvec3 interpFilt = filterStart + (filterVec * (1.0 / 15.0 * i));
-      glm::dvec3 interpUnf = glm::dvec3(pt1.x, pt1.y, pt1.z) + (unfVec * (1.0 / 15.0 * i));
+
+
+    int numSteps = glm::length(unfVec) / .0005;
+    for(int i = 1; i <= numSteps; i++){
+      glm::dvec3 interpUnf = unfStart + (unfVec * (1.0 / numSteps * i));
       m_unfilteredCloud->push_back(pcl::PointXYZ(interpUnf.x, interpUnf.y, interpUnf.z));
+    }
+
+    numSteps = glm::length(filterVec) / .001;
+    for (int i = 1; i <= numSteps; i++) {
+      glm::dvec3 interpFilt = filterStart + (filterVec * (1.0 / numSteps * i));
       m_filteredCloud->push_back(pcl::PointXYZ(interpFilt.x, interpFilt.y, interpFilt.z));
     }
 
@@ -610,8 +620,8 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     p->addPointCloud (m_unfilteredCloud, unf_h, "unfiltered_cloud", vp_1);
     p->addPointCloud (m_filteredCloud, fil_h, "filtered_cloud", vp_1);
 
-    p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "unfiltered_cloud");
-    p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "filtered_cloud");
+    p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "unfiltered_cloud");
+    p->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "filtered_cloud");
     p->spinOnce();
 
 

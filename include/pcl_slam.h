@@ -34,6 +34,7 @@
 #include <pcl/visualization/range_image_visualizer.h>
 
 #include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 #include "DoubleExpFilter.h"
 
 class SLAMProcessor{

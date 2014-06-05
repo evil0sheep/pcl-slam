@@ -451,6 +451,7 @@ SLAMProcessor::SLAMProcessor(int argc, char** argv)
   p->setBackgroundColor(1, 1, 1);
   p->registerKeyboardCallback (keyboardEventOccurred, (void *) this);
   //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
+  m_filter = new DoubleExpFilter(glm::dvec3(0), 0.2, 0.7);
 }
 
 void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
@@ -556,7 +557,15 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
 
     std::string id = "line";
     id += boost::lexical_cast<std::string>(m_frames.size());
-    p->addLine (pt1, pt2, 0, 0, 1, id.c_str());
+    p->addLine (pt1, pt2, 0, 1, 1, id.c_str());
+
+    std::string filterLineId = "Filtered Transform";
+    filterLineId += boost::lexical_cast<std::string>(m_frames.size());
+    glm::dvec3 originalPoint = m_filter->getCurrentPosition();
+    glm::dvec3 newPoint = m_filter->updatePosition(glm::dvec3(pt2.x, pt2.y, pt2.z));
+    pcl::PointXYZ fpt1(originalPoint.x, originalPoint.y, originalPoint.z);
+    pcl::PointXYZ fpt2(newPoint.x, newPoint.y, newPoint.z);
+    p->addLine(fpt1, fpt2, 1, 0, 1, filterLineId);
 
     if(downsample){
       grid.setInputCloud (alignedFrame);

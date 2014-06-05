@@ -33,6 +33,9 @@
 #include <pcl/keypoints/narf_keypoint.h>
 #include <pcl/visualization/range_image_visualizer.h>
 
+#include <glm/vec3.hpp>
+#include "DoubleExpFilter.h"
+
 class SLAMProcessor{
 
 public:
@@ -68,7 +71,7 @@ private:
 	//its left and right viewports
 	int vp_1, vp_2;
 	int m_frameCount;
-
+	DoubleExpFilter *m_filter;
 };
 
 #endif

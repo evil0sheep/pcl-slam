@@ -45,6 +45,8 @@ public:
 	std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> > m_frames;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr m_globalCloud;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr m_keypointsCloud;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr m_filteredCloud;
+	pcl::PointCloud<pcl::PointXYZ>::Ptr m_unfilteredCloud;
 	pcl::visualization::PCLVisualizer *p;
   void setGridSize(float gridSize);
   void setLeafSize(float leafSize);

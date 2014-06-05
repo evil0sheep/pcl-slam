@@ -74,8 +74,8 @@ void SLAMProcessor::showCloudsLeft(const pcl::PointCloud<pcl::PointXYZ>::Ptr clo
 {
   p->removePointCloud ("vp1_target");
   p->removePointCloud ("vp1_source");
-  PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h (cloud_target, 0, 255, 0);
-  PointCloudColorHandlerCustom<pcl::PointXYZ> src_h (cloud_source, 255, 0, 0);
+  PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h (cloud_target, 255, 0, 0);
+  PointCloudColorHandlerCustom<pcl::PointXYZ> src_h (cloud_source, 0, 255, 0);
 
 
   p->addPointCloud (cloud_target, tgt_h, "vp1_target", vp_1);
@@ -249,9 +249,9 @@ void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr poin
   pcl::RangeImageBorderExtractor range_image_border_extractor;
   pcl::NarfKeypoint narf_keypoint_detector (&range_image_border_extractor);
   narf_keypoint_detector.setRangeImage (&range_image);
-  narf_keypoint_detector.getParameters ().support_size = 0.1f;
-  //narf_keypoint_detector.getParameters ().add_points_on_straight_edges = true;
-   narf_keypoint_detector.getParameters ().distance_for_additional_points = 0.01;
+  narf_keypoint_detector.getParameters ().support_size = 0.05f;
+  narf_keypoint_detector.getParameters ().add_points_on_straight_edges = true;
+   narf_keypoint_detector.getParameters ().distance_for_additional_points = 0.02;
   //narf_keypoint_detector.getParameters ().use_recursive_scale_reduction = true;
   narf_keypoint_detector.getParameters ().min_interest_value = .45;
 
@@ -295,6 +295,8 @@ void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr poin
     keypoints.points[i].getVector3fMap () = range_image.points[keypoint_indices.points[i]].getVector3fMap ();
 
 
+
+
   // *m_keypointsCloud += *keypoints_ptr;
   // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> keypoints_color_handler (m_keypointsCloud, 0, 0, 0);
 
@@ -306,7 +308,8 @@ void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr poin
 
 
 
-void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt, pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &final_transform, bool downsample)
+void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_src, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_tgt,
+    pcl::PointCloud<pcl::PointXYZ>::Ptr output, Eigen::Matrix4f &transform_guess, Eigen::Matrix4f &final_transform, bool downsample)
 {
   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity (), targetToSource, initialTransform;
   //
@@ -340,7 +343,8 @@ void SLAMProcessor::pairAlign(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sr
 
   computeNarfKeypoint(cloud_tgt, tgt_keypoints);
 
-  tgt = tgt_keypoints;
+  pcl::transformPointCloud (*tgt_keypoints, *tgt, transform_guess);
+
 
   double t1 = get_wall_time();
 
@@ -491,15 +495,46 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     pcl::PointCloud<pcl::PointXYZ>::Ptr alignedFrame (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledFrame (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledMap (new pcl::PointCloud<pcl::PointXYZ>);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr targetFrame (new pcl::PointCloud<pcl::PointXYZ>);
+    int n = 25;
+    int max_frame_gap = 10;
+    if(m_frames.size() > n){
+      for(int i = max_frame_gap; i > 0; i--){
+        if(m_frames.size() > n * i){
+          printf("have %lu frames, taking %d frames at intervals of %d\n", m_frames.size(), n, i);
+          for(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> >::iterator
+           it = m_frames.end() - n * i ; it != m_frames.end(); it += i){
+            *targetFrame += **it;
+          }
+          break;
+        }
+        
+      }
+
+    }else{
+      for(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> >::iterator
+           it = m_frames.begin(); it != m_frames.end(); ++it){
+        *targetFrame += **it;
+      }
+    }
+
+    pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
+        rorfilter.setInputCloud (targetFrame);
+        rorfilter.setRadiusSearch (0.05);
+        rorfilter.setMinNeighborsInRadius (4);
+        rorfilter.setNegative (false);
+        rorfilter.filter (*targetFrame);
+
     Eigen::Matrix4f alignmentCorrectionTransform;
     //PCL_INFO ("applying current alignment\n");
-    pcl::transformPointCloud (*filteredFrame, *partiallyAlignedFrame, m_sensorTransform);
+    //pcl::transformPointCloud (*filteredFrame, *partiallyAlignedFrame, m_sensorTransform);
     // Add visualization data
     // PCL_INFO ("visualizing\n");
     // showCloudsLeft(partiallyAlignedFrame, m_globalCloud);
     //pcl::transformPointCloud (*source, *result, m_sensorTransform);
-    PCL_INFO ("Aligning frame of size %d with global map of size %d.\n", partiallyAlignedFrame->points.size (), m_globalCloud->points.size ());
-    pairAlign (m_globalCloud, partiallyAlignedFrame, alignedFrame, alignmentCorrectionTransform, downsample);
+    PCL_INFO ("Aligning to target frame of size %d.\n", targetFrame->points.size ());
+    pairAlign (targetFrame, filteredFrame, alignedFrame, m_sensorTransform, alignmentCorrectionTransform, downsample);
 
     //transform current pair into the global transform
     //pcl::transformPointCloud (*temp, *result, m_sensorTransform);
@@ -511,6 +546,14 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     // m_sensorTransform(2,2) = 1.0;
     // m_sensorTransform(3,3) = 1.0;
     pcl::PointXYZ pt2(m_sensorTransform(0, 3), m_sensorTransform(1, 3) , m_sensorTransform(2, 3));
+
+    // float c1 =.8;
+    // float c2 = 1-c1;
+    // pcl::PointXYZ pt3(c1 * pt1.x + c2 * pt2.x, c1 * pt1.y + c2 * pt2.y, c1 * pt1.z + c2 * pt2.z);
+    // m_sensorTransform(0, 3) = pt3.x;
+    // m_sensorTransform(1, 3) = pt3.y;
+    // m_sensorTransform(2, 3) = pt3.z;
+
     std::string id = "line";
     id += boost::lexical_cast<std::string>(m_frames.size());
     p->addLine (pt1, pt2, 0, 0, 1, id.c_str());
@@ -523,9 +566,16 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
       showCloudsLeft(alignedFrame, downsampledMap);
       *m_globalCloud += *downsampledFrame;
     }else{
-      showCloudsLeft(alignedFrame, m_globalCloud);
+      showCloudsLeft(alignedFrame, targetFrame);
       *m_globalCloud += *alignedFrame;
     }
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr storeFrame (new pcl::PointCloud<pcl::PointXYZ>);
+    *storeFrame += *alignedFrame;
+    m_frames.push_back(storeFrame);
+
+    // grid.setInputCloud (m_globalCloud);
+    // grid.filter (*m_globalCloud);
 
     // sor.setMeanK (50);
     // sor.setStddevMulThresh (4.0);
@@ -540,9 +590,24 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     
     // grid.setInputCloud (m_globalCloud);
     // grid.filter (*m_globalCloud);
-    // if(m_frames.size() % 20 == 0){
+
+
+
+    // if(m_globalCloud->size() > 2000){
+
+    //             pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
+    //     rorfilter.setInputCloud (m_globalCloud);
+    //     rorfilter.setRadiusSearch (0.05);
+    //     rorfilter.setMinNeighborsInRadius (4);
+    //     rorfilter.setNegative (false);
+    //     rorfilter.filter (*m_globalCloud);
+
+
+    //       leafSize =0.01;
+    // grid.setLeafSize (leafSize, leafSize, leafSize);
     //   grid.setInputCloud (m_globalCloud);
     //    grid.filter (*m_globalCloud);
+
     // }
     // std::cout << "Alignment Correction: " << std::endl << alignmentCorrectionTransform <<std::endl;
     //std::cout << "New Global Transform: " << std::endl << m_sensorTransform <<std::endl;
@@ -555,10 +620,13 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     // grid.filter (*filteredFrame);
     computeNarfKeypoint(filteredFrame, filteredFrame);
     *m_globalCloud += *filteredFrame;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr storeFrame (new pcl::PointCloud<pcl::PointXYZ>);
+    *storeFrame += *filteredFrame;
+    m_frames.push_back(storeFrame);
   }
 
-  pcl::PointCloud<pcl::PointXYZ>::Ptr foo (new pcl::PointCloud<pcl::PointXYZ>);
-  m_frames.push_back(foo);
+  
   double t1 = get_wall_time();
   printf("frame processing took %f seconds\n", t1-t0);
 }

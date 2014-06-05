@@ -509,26 +509,31 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
     int target_num_points = 3000;
     int n = ((float) target_num_points / totalPoints) * m_frames.size();
     //int n = 25;
-    int max_frame_gap = 10;
+    int max_frame_gap = 100;
     if(m_frames.size() > n){
       for(int i = max_frame_gap; i > 0; i--){
         if(m_frames.size() > n * i){
-          //printf("have %lu frames, taking %d frames at intervals of %d\n", m_frames.size(), n, i);
-          for(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> >::iterator
-           it = m_frames.end() - n * i ; it != m_frames.end(); it += i){
-            *sourceFrame += **it;
+          int firstIndex = m_frames.size() - n * i;
+          firstIndex = (firstIndex / i) * i;
+          for(int j = firstIndex; j < m_frames.size(); j+=i){
+            *sourceFrame += *(m_frames[j]);
           }
+          // //printf("have %lu frames, taking %d frames at intervals of %d\n", m_frames.size(), n, i);
+          // for(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> >::iterator
+          //  it = m_frames.begin() + firstIndex ; it != m_frames.end(); it += i){
+          //   *sourceFrame += **it;
+          // }
           break;
         }
         
       }
 
-        pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
-        rorfilter.setInputCloud (sourceFrame);
-        rorfilter.setRadiusSearch (0.05);
-        rorfilter.setMinNeighborsInRadius (6);
-        rorfilter.setNegative (false);
-        rorfilter.filter (*sourceFrame);
+        // pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter (true); // Initializing with true will allow us to extract the removed indices
+        // rorfilter.setInputCloud (sourceFrame);
+        // rorfilter.setRadiusSearch (0.05);
+        // rorfilter.setMinNeighborsInRadius (6);
+        // rorfilter.setNegative (false);
+        // rorfilter.filter (*sourceFrame);
 
         // leafSize =0.01;
         // grid.setLeafSize (leafSize, leafSize, leafSize);

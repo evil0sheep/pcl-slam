@@ -108,7 +108,7 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
     for(int i=0; i < data.verticesFloatingPoint.size(); i++){
         DepthSense::FPVertex v = data.verticesFloatingPoint[i];
 
-        if(data.confidenceMap[i] > 00 && v.z > 0){
+        if(data.confidenceMap[i] > 300 && v.z > 0){
             frame.push_back(pcl::PointXYZ(-v.x, v.y, v.z));
         }  
     }
@@ -266,19 +266,19 @@ void configureNode(Node node)
         g_context.registerNode(node);
     }
 
-    if ((node.is<ColorNode>())&&(!g_cnode.isSet()))
-    {
-        g_cnode = node.as<ColorNode>();
-        configureColorNode();
-        g_context.registerNode(node);
-    }
+    // if ((node.is<ColorNode>())&&(!g_cnode.isSet()))
+    // {
+    //     g_cnode = node.as<ColorNode>();
+    //     configureColorNode();
+    //     g_context.registerNode(node);
+    // }
 
-    if ((node.is<AudioNode>())&&(!g_anode.isSet()))
-    {
-        g_anode = node.as<AudioNode>();
-        configureAudioNode();
-        g_context.registerNode(node);
-    }
+    // if ((node.is<AudioNode>())&&(!g_anode.isSet()))
+    // {
+    //     g_anode = node.as<AudioNode>();
+    //     configureAudioNode();
+    //     g_context.registerNode(node);
+    // }
 }
 
 /*----------------------------------------------------------------------------*/

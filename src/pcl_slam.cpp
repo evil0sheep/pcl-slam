@@ -191,7 +191,7 @@ void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr poin
   // -----------------------------------------------
   // -----Create RangeImage from the PointCloud-----
   // -----------------------------------------------
-    float angular_resolution = 0.02f;
+    float angular_resolution = param2;//0.02f;
 
   float noise_level = 0.0;
   float min_range = 0.0f;
@@ -249,7 +249,7 @@ void SLAMProcessor::computeNarfKeypoint(pcl::PointCloud<pcl::PointXYZ>::Ptr poin
   pcl::RangeImageBorderExtractor range_image_border_extractor;
   pcl::NarfKeypoint narf_keypoint_detector (&range_image_border_extractor);
   narf_keypoint_detector.setRangeImage (&range_image);
-  narf_keypoint_detector.getParameters ().support_size =  0.2f;
+  narf_keypoint_detector.getParameters ().support_size =  param1;//0.2f;
   narf_keypoint_detector.getParameters ().add_points_on_straight_edges = true;
    narf_keypoint_detector.getParameters ().distance_for_additional_points = 0.01;
   //narf_keypoint_detector.getParameters ().use_recursive_scale_reduction = true;
@@ -462,7 +462,7 @@ SLAMProcessor::SLAMProcessor(int argc, char** argv)
   p->setBackgroundColor(1, 1, 1);
   p->registerKeyboardCallback (keyboardEventOccurred, (void *) this);
   //p->createViewPort (0.5, 0, 1.0, 1.0, vp_2);
-  m_filter = new DoubleExpFilter(glm::dvec3(0), 0.2, 0.7);
+  m_filter = new DoubleExpFilter(glm::dvec3(0), 0.2, 0.1);
 }
 
 void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
@@ -518,16 +518,18 @@ void SLAMProcessor::addFrame(pcl::PointCloud<pcl::PointXYZ> &frame, bool filter)
       for(int i = max_frame_gap; i > 0; i--){
         if(m_frames.size() > n * i){
           int firstIndex = m_frames.size() - n * i;
-          firstIndex = (firstIndex / i) * i;
-          int j;
-          for(j = firstIndex; j < m_frames.size(); j+=i){
+          //firstIndex = (firstIndex / i) * i;
+          for(int j = firstIndex; j < m_frames.size(); j+=i){
             *sourceFrame += *(m_frames[j]);
           }
-
-          for(j; j < m_frames.size(); j++){
-            *sourceFrame += *(m_frames[j]);
-          }
-
+          // *sourceFrame += *(m_frames[m_frames.size()-2]);
+          //  *sourceFrame += *(m_frames[m_frames.size()-1]);
+          //*sourceFrame += **m_frames.end();
+          // //printf("have %lu frames, taking %d frames at intervals of %d\n", m_frames.size(), n, i);
+          // for(std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr, Eigen::aligned_allocator<pcl::PointCloud<pcl::PointXYZ>::Ptr> >::iterator
+          //  it = m_frames.begin() + firstIndex ; it != m_frames.end(); it += i){
+          //   *sourceFrame += **it;
+          // }
           break;
         }
         
